@@ -1,0 +1,8 @@
+{
+  "name": "Anime-X Streaming Platform",
+  "description": "A premium anime streaming platform featuring a sleek modern UI, user bookmark system, watch history with continue watching, and a comprehensive admin dashboard for banner and ad management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
