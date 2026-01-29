@@ -1,101 +1,119 @@
 
 import { Anime, Episode } from '../types';
 
-const BASE_URL = 'https://www.sankavollerei.com/api';
+const API_BASE = 'https://www.sankavollerei.com/anime/samehadaku';
 
-const fetcher = async (endpoint: string) => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+const proxies = [
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
 
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-
-    if (!response.ok) return null;
-    const json = await response.json();
-    return json;
-  } catch (error) {
-    return null;
-  }
+// Helper untuk memastikan Thumbnail selalu muncul
+export const getSafePoster = (url: string | undefined) => {
+  if (!url) return 'https://via.placeholder.com/300x450?text=No+Poster';
+  if (url.includes('placeholder')) return url;
+  return url;
 };
 
-const getMockAnimes = (count: number = 10): Anime[] => {
-  return Array.from({ length: count }).map((_, i) => ({
-    id: `mock-${i}`,
-    title: `Anime Demo ${i + 1}`,
-    poster: `https://picsum.photos/seed/anime${i + 50}/400/600`,
-    score: (Math.random() * 1.5 + 3.5).toFixed(1),
-    genres: ['Action', 'Fantasy'],
-    status: 'Ongoing'
+const fetcher = async (endpoint: string) => {
+  const fullUrl = `${API_BASE}${endpoint}`;
+  for (const getProxiedUrl of proxies) {
+    try {
+      const response = await fetch(getProxiedUrl(fullUrl), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (!response.ok) continue;
+      const text = await response.text();
+      const data = JSON.parse(text);
+      
+      if (data && (data.status === 'success' || data.data)) {
+        return data.data || data;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+  return null;
+};
+
+const mapAnimeList = (list: any[]): Anime[] => {
+  if (!Array.isArray(list)) return [];
+  return list.map((item: any) => ({
+    id: item.animeId || item.slug || item.id,
+    title: item.title,
+    poster: getSafePoster(item.poster || item.thumb),
+    genres: item.genres || ['Anime'],
+    score: item.score || '8.0',
+    status: item.status || 'N/A'
   }));
 };
 
 export const fetchTrending = async (): Promise<Anime[]> => {
-  const data = await fetcher('/trending');
-  const list = data?.data || data || [];
-  if (!Array.isArray(list) || list.length === 0) return getMockAnimes(4);
-
-  return list.map((item: any) => ({
-    id: item.id || item.slug || String(Math.random()),
-    title: item.title || 'Untitled',
-    poster: item.poster || item.thumb || 'https://via.placeholder.com/400x600',
-    genres: Array.isArray(item.genres) ? item.genres : [],
-    score: item.score || item.rating || '0.0',
-  }));
+  const data = await fetcher('/home');
+  return mapAnimeList(data?.recent?.anime || data?.popular || []);
 };
 
 export const fetchRecent = async (): Promise<Anime[]> => {
   const data = await fetcher('/recent');
-  const list = data?.data || data || [];
-  if (!Array.isArray(list) || list.length === 0) return getMockAnimes(12);
-
-  return list.map((item: any) => ({
-    id: item.id || item.slug || String(Math.random()),
-    title: item.title || 'Untitled',
-    poster: item.poster || item.thumb || 'https://via.placeholder.com/400x600',
-    score: item.score || item.rating || '0.0',
-    genres: Array.isArray(item.genres) ? item.genres : [],
-  }));
+  return mapAnimeList(data?.anime || data || []);
 };
 
-export const searchAnime = async (query: string): Promise<Anime[]> => {
-  if (!query) return [];
-  const data = await fetcher(`/search/${encodeURIComponent(query)}`);
-  const list = data?.data || data || [];
-  if (!Array.isArray(list) || list.length === 0) return [];
+export const fetchOngoing = async (): Promise<Anime[]> => {
+  const data = await fetcher('/ongoing');
+  return mapAnimeList(data?.anime || data || []);
+};
 
-  return list.map((item: any) => ({
-    id: item.id || item.slug || String(Math.random()),
-    title: item.title || 'Untitled',
-    poster: item.poster || item.thumb || 'https://via.placeholder.com/400x600',
-    score: item.score || item.rating || '0.0',
-    genres: Array.isArray(item.genres) ? item.genres : [],
-  }));
+export const fetchCompleted = async (): Promise<Anime[]> => {
+  const data = await fetcher('/completed');
+  return mapAnimeList(data?.anime || data || []);
+};
+
+export const fetchMovies = async (): Promise<Anime[]> => {
+  const data = await fetcher('/movies');
+  return mapAnimeList(data?.anime || data || []);
 };
 
 export const fetchAnimeDetail = async (id: string): Promise<Anime | null> => {
   const data = await fetcher(`/anime/${id}`);
   if (!data) return null;
 
-  const anime = data?.data || data;
   return {
-    id: anime.id || anime.slug || id,
-    title: anime.title || 'Untitled',
-    poster: anime.poster || anime.thumb || 'https://via.placeholder.com/400x600',
-    description: anime.description || anime.synopsis || 'No description.',
-    score: anime.score || anime.rating || '0.0',
-    genres: Array.isArray(anime.genres) ? anime.genres : [],
-    status: anime.status || 'Unknown',
-    episodes: Array.isArray(anime.episodes) ? anime.episodes.map((ep: any) => ({
-      id: ep.id || ep.slug || `ep-${ep.number}`,
+    id: data.animeId || id,
+    title: data.title,
+    poster: getSafePoster(data.poster || data.thumb),
+    description: data.synopsis || data.description,
+    score: data.score,
+    genres: data.genres || [],
+    status: data.status,
+    episodes: (data.episodeList || []).map((ep: any) => ({
+      id: ep.episodeId || ep.slug,
       anime_id: id,
-      title: ep.title || `Episode ${ep.number}`,
-      number: ep.number || 0,
-      link: ep.link || ep.video_url || 'https://www.w3schools.com/html/mov_bbb.mp4'
-    })) : []
+      title: ep.title,
+      number: parseInt(ep.title.replace(/[^0-9]/g, '')) || 0
+    }))
   };
+};
+
+export const fetchEpisodeDetail = async (epId: string) => {
+  const data = await fetcher(`/episode/${epId}`);
+  if (!data) return null;
+
+  if (data.serverList && data.serverList.length > 0) {
+    const firstServer = data.serverList[0];
+    const serverId = firstServer.serverId;
+    const serverResponse = await fetcher(`/server/${serverId}`);
+    return {
+      title: data.title,
+      stream_url: serverResponse?.url || serverResponse?.link || firstServer.url,
+      serverList: data.serverList
+    };
+  }
+  return data;
+};
+
+export const searchAnime = async (query: string): Promise<Anime[]> => {
+  const data = await fetcher(`/search?q=${encodeURIComponent(query)}`);
+  return mapAnimeList(data?.anime || data || []);
 };

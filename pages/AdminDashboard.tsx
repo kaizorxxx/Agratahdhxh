@@ -53,6 +53,11 @@ const AdminDashboard: React.FC = () => {
 
   if (!stats) return null;
 
+  // Helper to find an active ad by placement
+  const getAdForPlacement = (placement: string) => {
+    return ads.find(a => a.placement === placement && a.is_active);
+  };
+
   return (
     <div className="px-8 pb-12 space-y-8">
       <div className="flex flex-col md:flex-row items-center justify-between py-6 gap-4">
@@ -210,17 +215,21 @@ const AdminDashboard: React.FC = () => {
       )}
 
       {activeTab === 'ads' && (
-        <div className="space-y-6">
+        <div className="space-y-10">
+           {/* Ad Script Form */}
            <div className="bg-[#16191f] p-8 rounded-3xl border border-[#272a31]">
-              <h3 className="text-xl font-bold mb-6">Ad Script Configuration</h3>
+              <h3 className="text-xl font-bold mb-6 flex items-center space-x-2">
+                 <i className="fa-solid fa-code text-red-600"></i>
+                 <span>Ad Script Configuration</span>
+              </h3>
               <p className="text-xs text-gray-500 mb-6 italic">Inject third-party scripts (Adsterra, Monetag, etc.) into specific slots.</p>
               <div className="space-y-4">
                  <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">Placement Target</label>
-                    <select className="w-full bg-gray-900 border border-[#272a31] rounded-xl px-4 py-3 text-sm">
-                       <option>Sidebar Fixed</option>
-                       <option>Sticky Bottom Floating</option>
-                       <option>Interstitial Popup</option>
+                    <select className="w-full bg-gray-900 border border-[#272a31] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-600 appearance-none">
+                       <option value="sidebar">Sidebar Fixed</option>
+                       <option value="sticky-bottom">Sticky Bottom Floating</option>
+                       <option value="interstitial">Interstitial Popup</option>
                     </select>
                  </div>
                  <div className="space-y-2">
@@ -233,6 +242,65 @@ const AdminDashboard: React.FC = () => {
                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-red-600/20">
                     Update Ad Network
                  </button>
+              </div>
+           </div>
+
+           {/* Ad Placement Status / Preview Placeholder */}
+           <div className="space-y-6">
+              <h3 className="text-lg font-bold flex items-center space-x-2">
+                 <i className="fa-solid fa-circle-check text-green-500"></i>
+                 <span>Network Status & Live Preview</span>
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { id: 'sidebar', name: 'Sidebar Slot', desc: 'Appears on anime lists and details.' },
+                  { id: 'sticky-bottom', name: 'Sticky Bottom', desc: 'Floating bar at the bottom of the screen.' },
+                  { id: 'interstitial', name: 'Interstitial', desc: 'Full screen popup on navigation.' }
+                ].map((slot) => {
+                  const activeAd = getAdForPlacement(slot.id);
+                  return (
+                    <div key={slot.id} className="bg-[#16191f] p-6 rounded-3xl border border-[#272a31] flex flex-col space-y-4">
+                       <div className="flex justify-between items-start">
+                          <div>
+                             <h4 className="font-bold text-sm text-white">{slot.name}</h4>
+                             <p className="text-[10px] text-gray-500">{slot.desc}</p>
+                          </div>
+                          {activeAd ? (
+                            <span className="bg-green-500/10 text-green-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-green-500/20">Active</span>
+                          ) : (
+                            <span className="bg-red-500/10 text-red-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-red-500/20">Inactive</span>
+                          )}
+                       </div>
+
+                       <div className={`flex-1 min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all ${
+                         activeAd ? 'border-green-600/20 bg-green-600/5' : 'border-gray-800 bg-gray-900/30'
+                       }`}>
+                          {activeAd ? (
+                            <div className="text-center space-y-2">
+                               <i className="fa-solid fa-check-circle text-2xl text-green-600"></i>
+                               <p className="text-[10px] font-bold text-gray-400">Script configured successfully</p>
+                               <p className="text-[8px] text-gray-600 truncate max-w-[150px] font-mono">ID: {activeAd.id}</p>
+                            </div>
+                          ) : (
+                            <div className="text-center space-y-2 group">
+                               <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-2 text-gray-600 group-hover:scale-110 transition-transform">
+                                  <i className="fa-solid fa-eye-slash text-sm"></i>
+                               </div>
+                               <p className="text-[11px] font-bold text-gray-500">Ad script not configured yet</p>
+                               <p className="text-[9px] text-gray-600 px-4">The slot will remain empty or hidden for visitors.</p>
+                            </div>
+                          )}
+                       </div>
+                       
+                       <button className={`w-full py-2 rounded-xl text-[10px] font-bold transition-all border ${
+                         activeAd ? 'border-red-600/20 text-red-500 hover:bg-red-600/10' : 'border-gray-700 text-gray-500 hover:text-white hover:border-gray-500'
+                       }`}>
+                          {activeAd ? 'Disable Script' : 'Configure Slot'}
+                       </button>
+                    </div>
+                  );
+                })}
               </div>
            </div>
         </div>
