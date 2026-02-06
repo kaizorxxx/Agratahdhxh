@@ -1,5 +1,5 @@
 
-import { Anime, Episode } from '../types';
+import { Anime, Episode } from '../types.ts';
 
 const API_BASE = 'https://www.sankavollerei.com/anime/samehadaku';
 

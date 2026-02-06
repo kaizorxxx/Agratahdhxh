@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { searchAnime } from '../services/animeApi';
-import { Anime } from '../types';
+import { searchAnime } from '../services/animeApi.ts';
+import { Anime } from '../types.ts';
 
 const SearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
@@ -23,6 +23,7 @@ const SearchPage: React.FC = () => {
             <input 
               type="text" 
               value={query}
+              // Fixed: replaced undefined 'setSearchQuery' with 'setQuery'
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Start typing title, genre or year..." 
               className="w-full bg-[#16191f] border border-[#272a31] rounded-2xl py-6 pl-14 pr-32 text-lg focus:outline-none focus:border-red-600 focus:ring-4 focus:ring-red-600/10 transition-all shadow-2xl"

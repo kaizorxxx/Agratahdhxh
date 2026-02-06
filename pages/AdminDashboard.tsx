@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { getSystemStats, supabase } from '../supabaseClient';
-import { Banner, Ad } from '../types';
+import { getSystemStats, supabase } from '../supabaseClient.ts';
+import { Banner, Ad } from '../types.ts';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
@@ -258,7 +258,7 @@ const AdminDashboard: React.FC = () => {
                   { id: 'sticky-bottom', name: 'Sticky Bottom', desc: 'Floating bar at the bottom of the screen.' },
                   { id: 'interstitial', name: 'Interstitial', desc: 'Full screen popup on navigation.' }
                 ].map((slot) => {
-                  const activeAd = getAdForPlacement(slot.id);
+                  const activeAd = ads.find(a => a.placement === slot.id && a.is_active);
                   return (
                     <div key={slot.id} className="bg-[#16191f] p-6 rounded-3xl border border-[#272a31] flex flex-col space-y-4">
                        <div className="flex justify-between items-start">

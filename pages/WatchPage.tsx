@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchAnimeDetail, fetchEpisodeDetail } from '../services/animeApi';
-import { Anime } from '../types';
+import { fetchAnimeDetail, fetchEpisodeDetail } from '../services/animeApi.ts';
+import { Anime } from '../types.ts';
 
 const WatchPage: React.FC = () => {
   const { animeId, epId } = useParams<{ animeId: string; epId: string }>();

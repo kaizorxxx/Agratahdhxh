@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchAnimeDetail } from '../services/animeApi';
-import { Anime } from '../types';
-import { supabase } from '../supabaseClient';
+import { fetchAnimeDetail } from '../services/animeApi.ts';
+import { Anime } from '../types.ts';
+import { supabase } from '../supabaseClient.ts';
 
 const AnimeDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -74,7 +74,7 @@ const AnimeDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full min-h-[50vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div>
       </div>
     );
@@ -82,7 +82,7 @@ const AnimeDetailPage: React.FC = () => {
 
   if (!anime) {
     return (
-      <div className="flex flex-col items-center justify-center h-full space-y-4">
+      <div className="flex flex-col items-center justify-center h-full min-h-[50vh] space-y-4">
         <i className="fa-solid fa-triangle-exclamation text-4xl text-yellow-500"></i>
         <h2 className="text-xl font-bold">Anime Not Found</h2>
         <p className="text-gray-500">The requested content could not be loaded.</p>
