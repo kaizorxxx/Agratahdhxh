@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { fetchTrending, fetchRecent, getSafePoster } from '../services/animeApi';
-import { Anime, Banner } from '../types';
-import { supabase } from '../supabaseClient';
+import { fetchTrending, fetchRecent, getSafePoster } from '../services/animeApi.ts';
+import { Anime, Banner } from '../types.ts';
+import { supabase } from '../supabaseClient.ts';
 
 const HomePage: React.FC = () => {
   const [trending, setTrending] = useState<Anime[]>([]);
@@ -16,13 +16,18 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      const [trendingData, recentData] = await Promise.all([
-        fetchTrending(),
-        fetchRecent()
-      ]);
-      setTrending(trendingData);
-      setRecent(recentData);
-      setIsLoading(false);
+      try {
+        const [trendingData, recentData] = await Promise.all([
+          fetchTrending(),
+          fetchRecent()
+        ]);
+        setTrending(trendingData || []);
+        setRecent(recentData || []);
+      } catch (e) {
+        console.error("Home loading error:", e);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     loadData();
@@ -66,14 +71,19 @@ const HomePage: React.FC = () => {
         </form>
       </div>
 
-      {trending.length > 0 && (
+      {trending && trending.length > 0 && (
         <section>
           <h2 className="text-xl font-bold mb-6 flex items-center uppercase tracking-tighter">
             Featured
             <span className="ml-3 px-2 py-0.5 bg-red-600 text-[10px] uppercase rounded-sm font-black tracking-tighter">Hot</span>
           </h2>
           <div className="relative h-[480px] rounded-[40px] overflow-hidden group shadow-2xl border border-white/5">
-            <img src={trending[0].poster} alt={trending[0].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
+            <img 
+              src={trending[0].poster} 
+              alt={trending[0].title} 
+              className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000"
+              onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/1200x480?text=Banner+Error'}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f1115] via-[#0f1115]/40 to-transparent"></div>
             <div className="absolute bottom-12 left-12 max-w-2xl space-y-4">
               <h1 className="text-6xl font-black text-white tracking-tighter line-clamp-2 drop-shadow-2xl uppercase italic">{trending[0].title}</h1>
@@ -89,9 +99,6 @@ const HomePage: React.FC = () => {
                   <i className="fa-solid fa-play text-xl transition-transform group-hover/btn:scale-125"></i>
                   <span className="tracking-widest text-sm">WATCH NOW</span>
                 </Link>
-                <button className="bg-white/10 hover:bg-white/20 text-white w-16 h-16 rounded-[20px] flex items-center justify-center transition-all backdrop-blur-xl border border-white/10">
-                  <i className="fa-solid fa-plus text-lg"></i>
-                </button>
               </div>
             </div>
           </div>
@@ -113,13 +120,9 @@ const HomePage: React.FC = () => {
                     <i className="fa-solid fa-star text-[8px]"></i>
                     <span>{anime.score}</span>
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                     <div className="w-full py-3 bg-red-600 rounded-xl text-center text-[10px] font-black text-white uppercase tracking-widest">Detail</div>
-                  </div>
                 </div>
                 <div>
                   <h3 className="font-bold text-sm line-clamp-1 group-hover:text-red-500 transition-colors uppercase tracking-tight">{anime.title}</h3>
-                  <p className="text-[10px] text-gray-500 truncate font-black uppercase tracking-widest mt-1 opacity-60">{anime.genres?.slice(0, 1).join(' / ')}</p>
                 </div>
               </Link>
             ))}
@@ -139,7 +142,6 @@ const HomePage: React.FC = () => {
                   <Link to={`/anime/${anime.id}`} key={idx} className="flex items-center space-x-5 group">
                     <div className="relative w-20 h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-gray-800 border border-white/10 shadow-xl">
                       <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-red-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-xs font-black truncate group-hover:text-red-500 transition-colors uppercase tracking-tighter">{anime.title}</h4>
@@ -148,7 +150,6 @@ const HomePage: React.FC = () => {
                             <i className="fa-solid fa-star"></i>
                             <span>{anime.score}</span>
                          </div>
-                         <span className="text-[9px] text-gray-600 font-black uppercase tracking-widest">{anime.genres?.[0]}</span>
                       </div>
                     </div>
                   </Link>

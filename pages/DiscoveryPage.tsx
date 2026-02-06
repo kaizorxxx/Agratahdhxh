@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchOngoing, fetchCompleted, fetchMovies } from '../services/animeApi';
-import { Anime } from '../types';
+import { fetchOngoing, fetchCompleted, fetchMovies } from '../services/animeApi.ts';
+import { Anime } from '../types.ts';
 
 const DiscoveryPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ongoing' | 'completed' | 'movies'>('ongoing');
@@ -17,9 +17,10 @@ const DiscoveryPage: React.FC = () => {
         if (activeTab === 'ongoing') data = await fetchOngoing();
         else if (activeTab === 'completed') data = await fetchCompleted();
         else if (activeTab === 'movies') data = await fetchMovies();
-        setAnimes(data);
+        setAnimes(data || []);
       } catch (e) {
-        console.error(e);
+        console.error("Discovery loading error:", e);
+        setAnimes([]);
       } finally {
         setLoading(false);
       }
@@ -62,10 +63,18 @@ const DiscoveryPage: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {animes.length > 0 ? animes.map(anime => (
+          {animes && animes.length > 0 ? animes.map(anime => (
             <Link to={`/anime/${anime.id}`} key={anime.id} className="group block space-y-3">
               <div className="relative aspect-[3/4.5] rounded-[24px] overflow-hidden bg-[#16191f] border border-white/5 shadow-lg">
-                <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" loading="lazy" />
+                <img 
+                  src={anime.poster} 
+                  alt={anime.title} 
+                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" 
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x450?text=Poster+Error';
+                  }}
+                />
                 <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-lg text-[9px] font-black text-yellow-500 flex items-center space-x-1 border border-white/10">
                   <i className="fa-solid fa-star text-[7px]"></i>
                   <span>{anime.score}</span>
@@ -84,7 +93,7 @@ const DiscoveryPage: React.FC = () => {
           )) : (
             <div className="col-span-full py-20 text-center space-y-4">
                <i className="fa-solid fa-face-frown text-5xl text-gray-700"></i>
-               <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Tidak ada data ditemukan di kategori ini.</p>
+               <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Tidak ada data ditemukan.</p>
             </div>
           )}
         </div>
