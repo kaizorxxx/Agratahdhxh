@@ -1,6 +1,6 @@
 
 export interface Anime {
-  id: string;
+  id: string; // urlId
   title: string;
   poster: string;
   type?: string;
@@ -8,13 +8,16 @@ export interface Anime {
   score?: string;
   genres?: string[];
   description?: string;
+  studio?: string;
+  release_date?: string;
+  total_episodes?: string | number;
   episodes?: Episode[];
 }
 
 export interface Episode {
-  id: string;
+  id: string; // chapterUrlId
   title: string;
-  number: number;
+  number: number | string;
   anime_id: string;
   link?: string;
 }

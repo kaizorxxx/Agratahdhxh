@@ -1,6 +1,10 @@
 
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient.ts';
+import AuthModal from './AuthModal.tsx';
+import { fetchMovies } from '../services/animeApi.ts'; // Import fetchMovies
+import { Anime } from '../types.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,7 +12,12 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [notifications, setNotifications] = useState<Anime[]>([]);
+  const [showNotif, setShowNotif] = useState(false);
 
   const menuItems = [
     { name: 'Home', icon: 'fa-house', path: '/' },
@@ -22,6 +31,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'My Collection', icon: 'fa-bookmark', path: '/collection' },
     { name: 'Download', icon: 'fa-download', path: '/download' },
   ];
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Load Notifications (Movies)
+    fetchMovies().then(data => {
+      setNotifications(data.slice(0, 5)); // Ambil 5 movie terbaru sebagai notifikasi
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -82,10 +115,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <i className="fa-solid fa-gear w-5"></i>
             <span className="text-sm font-medium">Admin Panel</span>
           </Link>
-          <button className="flex w-full items-center space-x-3 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
-            <i className="fa-solid fa-right-from-bracket w-5"></i>
-            <span className="text-sm font-medium">Log out</span>
-          </button>
+          {user ? (
+            <button 
+              onClick={handleLogout}
+              className="flex w-full items-center space-x-3 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+            >
+              <i className="fa-solid fa-right-from-bracket w-5"></i>
+              <span className="text-sm font-medium">Log out</span>
+            </button>
+          ) : (
+            <button 
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex w-full items-center space-x-3 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            >
+              <i className="fa-solid fa-right-to-bracket w-5"></i>
+              <span className="text-sm font-medium">Sign In</span>
+            </button>
+          )}
         </div>
       </aside>
 
@@ -100,26 +146,66 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <nav className="hidden md:flex space-x-6">
               <Link to="/series" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Series</Link>
               <Link to="/movies" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Movies</Link>
-              <Link to="/goodies" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Goodies</Link>
             </nav>
           </div>
 
           <div className="flex items-center space-x-6">
+            {/* Notification Bell */}
             <div className="relative group">
-               <i className="fa-solid fa-bell text-gray-400 hover:text-white cursor-pointer transition-colors text-lg"></i>
-               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full"></span>
+               <button onClick={() => setShowNotif(!showNotif)} className="relative">
+                 <i className="fa-solid fa-bell text-gray-400 hover:text-white cursor-pointer transition-colors text-lg"></i>
+                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+               </button>
+               
+               {/* Dropdown Notification */}
+               {showNotif && (
+                 <div className="absolute right-0 mt-4 w-80 bg-[#16191f] border border-[#272a31] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
+                    <div className="p-4 border-b border-[#272a31]">
+                       <h4 className="font-bold text-white text-sm">New Anime Movies</h4>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                       {notifications.map((movie, idx) => (
+                         <Link 
+                           key={idx} 
+                           to={`/anime/${movie.id}`} 
+                           onClick={() => setShowNotif(false)}
+                           className="flex items-center space-x-3 p-3 hover:bg-[#272a31] transition-colors"
+                         >
+                            <img src={movie.poster} alt="" className="w-10 h-14 object-cover rounded-md" />
+                            <div>
+                               <p className="text-xs font-bold text-white line-clamp-1">{movie.title}</p>
+                               <span className="text-[10px] text-red-500 font-medium">New Upload</span>
+                            </div>
+                         </Link>
+                       ))}
+                       {notifications.length === 0 && (
+                         <div className="p-4 text-center text-xs text-gray-500">No new notifications</div>
+                       )}
+                    </div>
+                 </div>
+               )}
             </div>
-            <Link to="/profile" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden border-2 border-gray-600 group-hover:border-red-600 transition-all">
-                <img src="https://picsum.photos/seed/user/100/100" alt="Avatar" className="w-full h-full object-cover" />
-              </div>
-              <i className="fa-solid fa-chevron-down text-gray-400 group-hover:text-white text-xs transition-colors"></i>
-            </Link>
+            
+            {user ? (
+              <Link to="/profile" className="flex items-center space-x-3 group">
+                <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden border-2 border-gray-600 group-hover:border-red-600 transition-all">
+                  <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
+                </div>
+                <i className="fa-solid fa-chevron-down text-gray-400 group-hover:text-white text-xs transition-colors"></i>
+              </Link>
+            ) : (
+              <button 
+                onClick={() => setIsAuthModalOpen(true)}
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-red-600/20"
+              >
+                Login
+              </button>
+            )}
           </div>
         </header>
 
         {/* Content View */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar" id="scrollable-content">
           {children}
         </div>
 
@@ -131,6 +217,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
            </div>
         </div>
+        
+        {/* Auth Modal */}
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </main>
     </div>
   );

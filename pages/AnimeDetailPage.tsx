@@ -6,7 +6,7 @@ import { Anime } from '../types.ts';
 import { supabase } from '../supabaseClient.ts';
 
 const AnimeDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>(); // Ini adalah urlId
   const [anime, setAnime] = useState<Anime | null>(null);
   const [loading, setLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -23,7 +23,6 @@ const AnimeDetailPage: React.FC = () => {
         setLoading(false);
       });
 
-      // Check if already bookmarked
       const checkBookmark = async () => {
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -117,14 +116,16 @@ const AnimeDetailPage: React.FC = () => {
                 <i className={`fa-solid ${isBookmarked ? 'fa-check' : 'fa-bookmark'}`}></i>
                 <span>{isBookmarked ? 'Saved to Favorites' : 'Save to Favorites'}</span>
              </button>
+             
+             {/* Info Grid */}
              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#16191f] p-4 rounded-2xl text-center border border-[#272a31]">
                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Score</p>
-                   <p className="text-xl font-black text-yellow-500">{anime.score || '?'}</p>
+                   <p className="text-xl font-black text-yellow-500">{anime.score || 'N/A'}</p>
                 </div>
                 <div className="bg-[#16191f] p-4 rounded-2xl text-center border border-[#272a31]">
-                   <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Status</p>
-                   <p className="text-sm font-bold text-white uppercase">{anime.status || 'N/A'}</p>
+                   <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Eps</p>
+                   <p className="text-xl font-black text-white">{anime.total_episodes || '?'}</p>
                 </div>
              </div>
           </div>
@@ -137,7 +138,27 @@ const AnimeDetailPage: React.FC = () => {
                 <i className="fa-solid fa-chevron-right text-[8px]"></i>
                 <span className="text-gray-300">{anime.title}</span>
               </nav>
-              <h1 className="text-5xl font-black text-white leading-tight mb-4">{anime.title}</h1>
+              <h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-4">{anime.title}</h1>
+              
+              {/* Metadata Badges */}
+              <div className="flex flex-wrap gap-3 mb-6">
+                 {anime.status && (
+                    <span className="px-3 py-1 bg-red-600/20 text-red-500 rounded-lg text-xs font-bold uppercase tracking-wide border border-red-600/20">
+                       {anime.status}
+                    </span>
+                 )}
+                 {anime.studio && (
+                    <span className="px-3 py-1 bg-blue-600/20 text-blue-500 rounded-lg text-xs font-bold uppercase tracking-wide border border-blue-600/20">
+                       {anime.studio}
+                    </span>
+                 )}
+                 {anime.release_date && (
+                    <span className="px-3 py-1 bg-green-600/20 text-green-500 rounded-lg text-xs font-bold uppercase tracking-wide border border-green-600/20">
+                       {anime.release_date}
+                    </span>
+                 )}
+              </div>
+
               <div className="flex flex-wrap gap-2">
                  {anime.genres?.map(genre => (
                    <span key={genre} className="px-4 py-1.5 bg-[#16191f] border border-[#272a31] rounded-full text-[11px] font-bold text-gray-400 hover:text-white hover:border-red-600 transition-colors cursor-default">
@@ -147,35 +168,35 @@ const AnimeDetailPage: React.FC = () => {
               </div>
            </div>
 
-           <div className="max-w-2xl bg-[#16191f]/50 p-6 rounded-3xl border border-[#272a31]">
+           <div className="max-w-3xl bg-[#16191f]/50 p-8 rounded-[32px] border border-[#272a31]">
               <h3 className="text-lg font-bold mb-4 flex items-center space-x-2">
                  <i className="fa-solid fa-circle-info text-red-600"></i>
                  <span>Synopsis</span>
               </h3>
-              <p className="text-gray-400 leading-relaxed text-sm">
-                 {anime.description || 'No detailed description found.'}
+              <p className="text-gray-400 leading-relaxed text-sm whitespace-pre-line">
+                 {anime.description}
               </p>
            </div>
 
            <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold">Episodes</h3>
-                <span className="text-sm text-gray-500 font-medium">{anime.episodes?.length || 0} episodes</span>
+                <span className="text-sm text-gray-500 font-medium">{anime.episodes?.length || 0} episodes available</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {anime.episodes?.map(ep => (
                   <Link 
                     to={`/watch/${anime.id}/${ep.id}`} 
                     key={ep.id} 
-                    className="flex items-center justify-between p-5 bg-[#16191f] border border-[#272a31] rounded-2xl hover:border-red-600 hover:bg-gray-800 transition-all group"
+                    className="flex items-center justify-between p-4 bg-[#16191f] border border-[#272a31] rounded-xl hover:border-red-600 hover:bg-gray-800 transition-all group"
                   >
-                    <div className="flex items-center space-x-4">
-                       <div className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center text-gray-500 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                          <i className="fa-solid fa-play ml-1"></i>
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                       <div className="w-8 h-8 flex-shrink-0 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 group-hover:bg-red-600 group-hover:text-white transition-colors text-xs font-bold">
+                          {ep.number}
                        </div>
-                       <span className="font-bold text-sm text-gray-300 group-hover:text-white">{ep.title}</span>
+                       <span className="font-bold text-xs text-gray-300 group-hover:text-white truncate">Episode {ep.number}</span>
                     </div>
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">HD</span>
+                    <i className="fa-solid fa-play text-[10px] text-gray-600 group-hover:text-red-500"></i>
                   </Link>
                 ))}
               </div>
