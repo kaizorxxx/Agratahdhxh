@@ -21,6 +21,12 @@ export const extractIdFromUrl = (url: string): string => {
   return parts[parts.length - 1];
 };
 
+// Helper untuk mengubah slug episode (ex: anime-episode-1) menjadi slug anime (ex: anime)
+export const getAnimeSlug = (slug: string): string => {
+  // Menghapus pola "-episode-angka" dan sisanya di belakang
+  return slug.replace(/-episode-\d+.*$/, '');
+};
+
 /**
  * Robust Fetcher with Proxy Support
  */
@@ -115,7 +121,10 @@ export const searchAnime = async (query: string, page: number = 1): Promise<Anim
 
 export const fetchAnimeDetail = async (slug: string): Promise<Anime | null> => {
   try {
-    const res = await fetchAPI<DetailResponse>('/detail.php', { slug });
+    // Bersihkan slug jika user mengirim slug episode
+    const cleanSlug = getAnimeSlug(slug);
+    
+    const res = await fetchAPI<DetailResponse>('/detail.php', { slug: cleanSlug });
     if (res.status === 'success' && res.data) {
       const d = res.data;
       
@@ -123,12 +132,12 @@ export const fetchAnimeDetail = async (slug: string): Promise<Anime | null> => {
         id: ep.slug,
         title: ep.title,
         number: ep.episode,
-        anime_id: slug,
+        anime_id: cleanSlug,
         date: ep.date
       }));
 
       return {
-        id: slug,
+        id: cleanSlug,
         title: d.title,
         poster: d.thumbnail,
         description: d.synopsis,

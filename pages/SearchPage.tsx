@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { searchAnime } from '../services/animeApi.ts';
 import { Anime } from '../types.ts';
+import AnimeCard from '../components/AnimeCard.tsx';
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,10 +14,34 @@ const SearchPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Sync state with URL only when necessary (e.g. navigation)
+  useEffect(() => {
+    if (queryParam !== query) {
+      setQuery(queryParam);
+    }
+  }, [queryParam]);
+
+  // Debounce Input to URL
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (query !== queryParam) {
+        if (query.trim()) {
+           setSearchParams({ q: query }, { replace: true });
+        } else if (queryParam) {
+           setSearchParams({}, { replace: true });
+        }
+      }
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [query, queryParam, setSearchParams]);
+
+  // Perform Search when URL Param Changes
   useEffect(() => {
     if (queryParam) {
       performSearch(queryParam);
-      setQuery(queryParam);
+    } else {
+      setResults([]);
+      setHasSearched(false);
     }
   }, [queryParam]);
 
@@ -36,8 +61,8 @@ const SearchPage: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      setSearchParams({ q: query }); // Update URL
+    if (query.trim() && query !== queryParam) {
+      setSearchParams({ q: query });
     }
   };
 
@@ -101,22 +126,8 @@ const SearchPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {results.map(anime => (
-                <Link to={`/anime/${anime.id}`} key={anime.id} className="group block space-y-3">
-                  <div className="relative aspect-[3/4.5] rounded-2xl overflow-hidden bg-[#16191f] border border-white/5 shadow-lg">
-                    <img 
-                      src={anime.poster} 
-                      alt={anime.title} 
-                      className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xs text-white line-clamp-2 group-hover:text-red-500 transition-colors uppercase tracking-tight">{anime.title}</h3>
-                    <p className="text-[10px] text-gray-500 mt-1">{anime.score}</p>
-                  </div>
-                </Link>
+              {results.map((anime, idx) => (
+                <AnimeCard key={`${anime.id}-${idx}`} anime={anime} />
               ))}
             </div>
           )}

@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { fetchLatest, fetchRecommended } from '../services/animeApi.ts';
 import { getHistory } from '../services/historyService.ts';
 import { Anime, HistoryItem } from '../types.ts';
+import AnimeCard from '../components/AnimeCard.tsx';
 
 const HomePage: React.FC = () => {
   const [popular, setPopular] = useState<Anime[]>([]);
@@ -187,37 +188,7 @@ const HomePage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
               {recent.map((anime, idx) => (
-                <Link to={`/anime/${encodeURIComponent(anime.id)}`} key={`${anime.id}-${idx}`} className="group block space-y-4">
-                  <div className="relative aspect-[3/4.5] rounded-[24px] overflow-hidden bg-[#16191f] shadow-lg border border-white/5 transform-gpu">
-                    <img 
-                      src={anime.poster} 
-                      alt={anime.title} 
-                      onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/300x450?text=No+Image')}
-                      className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out" 
-                      loading="lazy" 
-                    />
-                    
-                    {/* Fixed Position Badge to prevent shaking during scroll/hover */}
-                    {anime.score && (
-                      <div className="absolute top-3 left-3 z-20 bg-red-600/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-[10px] font-black text-white flex items-center space-x-1 shadow-lg pointer-events-none">
-                          <i className="fa-solid fa-star text-[8px] text-yellow-300"></i>
-                          <span>{anime.score}</span>
-                      </div>
-                    )}
-
-                    <div className="absolute bottom-3 left-3 right-3 z-20 flex justify-between items-end">
-                      <div className="bg-black/60 px-2 py-1 rounded text-[9px] text-gray-300 font-bold uppercase truncate max-w-[70%] backdrop-blur-sm">
-                        {anime.status}
-                      </div>
-                      {anime.total_episodes && (
-                         <div className="bg-white/10 backdrop-blur-sm px-2 py-1 rounded text-[9px] text-white font-bold">
-                            EP {anime.total_episodes}
-                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <h3 className="font-bold text-sm line-clamp-2 group-hover:text-red-500 transition-colors uppercase">{anime.title}</h3>
-                </Link>
+                <AnimeCard key={`${anime.id}-${idx}`} anime={anime} />
               ))}
             </div>
           )}

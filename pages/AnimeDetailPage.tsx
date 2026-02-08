@@ -1,14 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchAnimeDetail, extractIdFromUrl } from '../services/animeApi.ts';
+import { fetchAnimeDetail, getAnimeSlug } from '../services/animeApi.ts';
 import { Anime } from '../types.ts';
 import { supabase } from '../supabaseClient.ts';
 
 const AnimeDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   // Decode ID dari URL
-  const cleanId = id ? decodeURIComponent(id) : '';
+  const rawId = id ? decodeURIComponent(id) : '';
+  // Bersihkan ID jika yang diklik adalah link episode
+  const cleanId = getAnimeSlug(rawId);
   
   const [anime, setAnime] = useState<Anime | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,7 +149,7 @@ const AnimeDetailPage: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {anime.episodes?.map(ep => (
                   <Link 
-                    to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(ep.id)}`} 
+                    to={`/watch/${encodeURIComponent(cleanId)}/${encodeURIComponent(ep.id)}`} 
                     key={ep.id} 
                     className="flex items-center justify-between p-4 bg-[#16191f] border border-[#272a31] rounded-xl hover:border-red-600 transition-all group"
                   >
