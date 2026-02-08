@@ -273,28 +273,35 @@ const AdminDashboard: React.FC = () => {
                           )}
                        </div>
 
-                       <div className={`flex-1 min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all ${
-                         activeAd ? 'border-green-600/20 bg-green-600/5' : 'border-gray-800 bg-gray-900/30'
+                       <div className={`flex-1 min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all relative overflow-hidden group/box ${
+                         activeAd ? 'border-green-600/20 bg-green-600/5' : 'border-gray-800 bg-gray-900/30 hover:border-gray-700 hover:bg-gray-900/50'
                        }`}>
+                          {/* Diagonal Pattern Background for Empty State */}
+                          {!activeAd && (
+                             <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
+                                  style={{ backgroundImage: 'linear-gradient(45deg, #ffffff 25%, transparent 25%, transparent 50%, #ffffff 50%, #ffffff 75%, transparent 75%, transparent)', backgroundSize: '20px 20px' }}>
+                             </div>
+                          )}
+
                           {activeAd ? (
-                            <div className="text-center space-y-2">
+                            <div className="text-center space-y-2 relative z-10">
                                <i className="fa-solid fa-check-circle text-2xl text-green-600"></i>
                                <p className="text-[10px] font-bold text-gray-400">Script configured successfully</p>
                                <p className="text-[8px] text-gray-600 truncate max-w-[150px] font-mono">ID: {activeAd.id}</p>
                             </div>
                           ) : (
-                            <div className="text-center space-y-2 group">
-                               <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-2 text-gray-600 group-hover:scale-110 transition-transform">
-                                  <i className="fa-solid fa-eye-slash text-sm"></i>
+                            <div className="text-center space-y-2 relative z-10">
+                               <div className="w-12 h-12 rounded-full bg-[#272a31] flex items-center justify-center mx-auto mb-2 text-gray-500 group-hover/box:scale-110 transition-transform shadow-inner">
+                                  <i className="fa-solid fa-code text-lg"></i>
                                </div>
-                               <p className="text-[11px] font-bold text-gray-500">Ad script not configured yet</p>
-                               <p className="text-[9px] text-gray-600 px-4">The slot will remain empty or hidden for visitors.</p>
+                               <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide">Ad Script Not Configured Yet</p>
+                               <p className="text-[9px] text-gray-600 px-4">Place your ad code to activate this slot.</p>
                             </div>
                           )}
                        </div>
                        
                        <button className={`w-full py-2 rounded-xl text-[10px] font-bold transition-all border ${
-                         activeAd ? 'border-red-600/20 text-red-500 hover:bg-red-600/10' : 'border-gray-700 text-gray-500 hover:text-white hover:border-gray-500'
+                         activeAd ? 'border-red-600/20 text-red-500 hover:bg-red-600/10' : 'border-gray-700 text-gray-500 hover:text-white hover:border-gray-500 hover:bg-gray-800'
                        }`}>
                           {activeAd ? 'Disable Script' : 'Configure Slot'}
                        </button>

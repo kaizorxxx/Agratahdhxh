@@ -65,15 +65,39 @@ const SearchPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20">
-           <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center justify-center py-24 space-y-6">
+           <div className="relative">
+             <div className="w-20 h-20 border-4 border-red-600/30 border-t-red-600 rounded-full animate-spin"></div>
+             <div className="absolute inset-0 flex items-center justify-center">
+                <i className="fa-solid fa-magnifying-glass text-red-600 text-xl animate-pulse"></i>
+             </div>
+           </div>
+           <p className="text-gray-400 text-xs font-black uppercase tracking-[0.3em] animate-pulse">Mencari Data Anime...</p>
         </div>
       ) : (
         <>
           {hasSearched && results.length === 0 ? (
-            <div className="text-center py-20 text-gray-500">
-               <i className="fa-solid fa-ghost text-4xl mb-4 opacity-50"></i>
-               <p className="font-bold text-sm uppercase tracking-widest">Tidak ditemukan hasil untuk "{queryParam}"</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-6 bg-[#16191f]/50 rounded-[40px] border border-dashed border-[#272a31] m-4">
+               <div className="text-7xl mb-2 text-gray-700 animate-bounce cursor-default select-none">
+                  (O_O;)
+               </div>
+               <div className="space-y-2">
+                 <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">
+                   Oops! Tidak Ada Hasil
+                 </h3>
+                 <p className="text-gray-500 font-bold text-xs uppercase tracking-widest max-w-md mx-auto leading-relaxed">
+                   Maaf, kami tidak dapat menemukan anime dengan kata kunci <span className="text-red-500">"{queryParam}"</span>.
+                   <br/>Coba gunakan judul bahasa Inggris atau Jepang.
+                 </p>
+               </div>
+               <div className="flex gap-4">
+                  <button onClick={() => { setQuery(''); setSearchParams({}); }} className="px-6 py-2.5 rounded-xl border border-[#272a31] text-gray-400 hover:text-white hover:border-white font-bold text-xs uppercase tracking-wider transition-all">
+                    Reset
+                  </button>
+                  <Link to="/discovery" className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase text-xs tracking-wider transition-all shadow-lg shadow-red-600/20">
+                    Browse Catalog
+                  </Link>
+               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">

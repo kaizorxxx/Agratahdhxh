@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient.ts';
 import AuthModal from './AuthModal.tsx';
-import { fetchMovies } from '../services/animeApi.ts'; // Import fetchMovies
+import { fetchMovies } from '../services/animeApi.ts';
 import { Anime } from '../types.ts';
 
 interface LayoutProps {
@@ -23,29 +23,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Home', icon: 'fa-house', path: '/' },
     { name: 'Discovery', icon: 'fa-compass', path: '/discovery' },
     { name: 'Community', icon: 'fa-users', path: '/community' },
-    { name: 'Coming Soon', icon: 'fa-clock', path: '/coming-soon' },
   ];
 
   const libraryItems = [
     { name: 'Recent', icon: 'fa-clock-rotate-left', path: '/recent' },
     { name: 'My Collection', icon: 'fa-bookmark', path: '/collection' },
-    { name: 'Download', icon: 'fa-download', path: '/download' },
   ];
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
 
-    // Listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
 
-    // Load Notifications (Movies)
+    // Ambil data movie untuk notifikasi
     fetchMovies().then(data => {
-      setNotifications(data.slice(0, 5)); // Ambil 5 movie terbaru sebagai notifikasi
+      setNotifications(data.slice(0, 6)); // Ambil 6 movie terbaru
     });
 
     return () => subscription.unsubscribe();
@@ -144,42 +140,46 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <i className="fa-solid fa-bars text-xl"></i>
             </button>
             <nav className="hidden md:flex space-x-6">
-              <Link to="/series" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Series</Link>
-              <Link to="/movies" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Movies</Link>
+              <Link to="/discovery" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Series</Link>
+              <Link to="/discovery" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Movies</Link>
             </nav>
           </div>
 
           <div className="flex items-center space-x-6">
-            {/* Notification Bell */}
+            {/* Notification Bell (Movies) */}
             <div className="relative group">
-               <button onClick={() => setShowNotif(!showNotif)} className="relative">
+               <button onClick={() => setShowNotif(!showNotif)} className="relative p-2">
                  <i className="fa-solid fa-bell text-gray-400 hover:text-white cursor-pointer transition-colors text-lg"></i>
-                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+                 <span className="absolute top-1 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse border border-[#0f1115]"></span>
                </button>
                
                {/* Dropdown Notification */}
                {showNotif && (
-                 <div className="absolute right-0 mt-4 w-80 bg-[#16191f] border border-[#272a31] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
-                    <div className="p-4 border-b border-[#272a31]">
+                 <div className="absolute right-0 mt-2 w-80 bg-[#16191f] border border-[#272a31] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
+                    <div className="p-4 border-b border-[#272a31] flex justify-between items-center bg-gray-800/30">
                        <h4 className="font-bold text-white text-sm">New Anime Movies</h4>
+                       <span className="text-[10px] bg-red-600 px-2 py-0.5 rounded text-white font-bold">NEW</span>
                     </div>
-                    <div className="max-h-80 overflow-y-auto">
+                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
                        {notifications.map((movie, idx) => (
                          <Link 
                            key={idx} 
                            to={`/anime/${movie.id}`} 
                            onClick={() => setShowNotif(false)}
-                           className="flex items-center space-x-3 p-3 hover:bg-[#272a31] transition-colors"
+                           className="flex items-start space-x-3 p-3 hover:bg-[#272a31] transition-colors border-b border-gray-800/50 last:border-0"
                          >
-                            <img src={movie.poster} alt="" className="w-10 h-14 object-cover rounded-md" />
-                            <div>
-                               <p className="text-xs font-bold text-white line-clamp-1">{movie.title}</p>
-                               <span className="text-[10px] text-red-500 font-medium">New Upload</span>
+                            <img src={movie.poster} alt="" className="w-12 h-16 object-cover rounded-md bg-gray-800" />
+                            <div className="flex-1 min-w-0">
+                               <p className="text-xs font-bold text-white line-clamp-2 leading-relaxed">{movie.title}</p>
+                               <div className="flex items-center space-x-2 mt-1">
+                                  <span className="text-[10px] text-yellow-500 font-bold"><i className="fa-solid fa-star mr-1"></i>{movie.score}</span>
+                                  <span className="text-[10px] text-gray-500">Movie</span>
+                               </div>
                             </div>
                          </Link>
                        ))}
                        {notifications.length === 0 && (
-                         <div className="p-4 text-center text-xs text-gray-500">No new notifications</div>
+                         <div className="p-8 text-center text-xs text-gray-500">Loading notifications...</div>
                        )}
                     </div>
                  </div>
@@ -191,7 +191,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden border-2 border-gray-600 group-hover:border-red-600 transition-all">
                   <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
-                <i className="fa-solid fa-chevron-down text-gray-400 group-hover:text-white text-xs transition-colors"></i>
               </Link>
             ) : (
               <button 
@@ -209,15 +208,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {children}
         </div>
 
-        {/* Sticky Ads (Simulated) */}
-        <div className="sticky bottom-0 w-full bg-[#16191f]/90 backdrop-blur-sm border-t border-[#272a31] py-2 flex justify-center items-center z-50">
-           <div className="max-w-screen-lg w-full flex justify-center">
-              <div className="bg-gray-800/50 rounded-md px-10 py-2 border border-dashed border-gray-600 text-xs text-gray-500 uppercase tracking-widest">
-                [ Advertisement Placeholder ]
-              </div>
-           </div>
-        </div>
-        
         {/* Auth Modal */}
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </main>
