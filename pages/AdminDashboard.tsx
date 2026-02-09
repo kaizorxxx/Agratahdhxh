@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getSystemStats, supabase } from '../supabaseClient.ts';
 import { Banner, Ad } from '../types.ts';
 
@@ -8,6 +9,7 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('stats');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
+  const navigate = useNavigate();
   
   // Banner Form State
   const [bannerUrl, setBannerUrl] = useState('');
@@ -15,15 +17,26 @@ const AdminDashboard: React.FC = () => {
   const [bannerSize, setBannerSize] = useState<'728x90' | '300x250' | 'hero'>('728x90');
 
   useEffect(() => {
+    // Basic double-check for session
+    if (sessionStorage.getItem('admin_auth') !== 'true') {
+      navigate('/');
+      return;
+    }
+
     getSystemStats().then(setStats);
     fetchData();
-  }, []);
+  }, [navigate]);
 
   const fetchData = async () => {
     const { data: bData } = await supabase.from('banners').select('*').order('id', { ascending: false });
     const { data: aData } = await supabase.from('ads').select('*').order('id', { ascending: false });
     if (bData) setBanners(bData);
     if (aData) setAds(aData);
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('admin_auth');
+    navigate('/');
   };
 
   const handleAddBanner = async () => {
@@ -53,15 +66,18 @@ const AdminDashboard: React.FC = () => {
 
   if (!stats) return null;
 
-  // Helper to find an active ad by placement
-  const getAdForPlacement = (placement: string) => {
-    return ads.find(a => a.placement === placement && a.is_active);
-  };
-
   return (
-    <div className="px-8 pb-12 space-y-8">
+    <div className="px-8 pb-12 space-y-8 animate-fadeIn">
       <div className="flex flex-col md:flex-row items-center justify-between py-6 gap-4">
-         <h1 className="text-3xl font-black">Admin <span className="text-red-600">Dashboard</span></h1>
+         <div className="flex items-center space-x-4">
+            <h1 className="text-3xl font-black">Admin <span className="text-red-600">Dashboard</span></h1>
+            <button 
+              onClick={handleAdminLogout}
+              className="text-[10px] bg-gray-800 hover:bg-red-600 text-white px-3 py-1 rounded-full font-bold transition-all uppercase tracking-widest"
+            >
+               Exit Dashboard
+            </button>
+         </div>
          <div className="flex bg-[#16191f] p-1 rounded-xl border border-[#272a31] overflow-x-auto">
             {['stats', 'banners', 'ads'].map(tab => (
               <button 
@@ -242,72 +258,6 @@ const AdminDashboard: React.FC = () => {
                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-red-600/20">
                     Update Ad Network
                  </button>
-              </div>
-           </div>
-
-           {/* Ad Placement Status / Preview Placeholder */}
-           <div className="space-y-6">
-              <h3 className="text-lg font-bold flex items-center space-x-2">
-                 <i className="fa-solid fa-circle-check text-green-500"></i>
-                 <span>Network Status & Live Preview</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  { id: 'sidebar', name: 'Sidebar Slot', desc: 'Appears on anime lists and details.' },
-                  { id: 'sticky-bottom', name: 'Sticky Bottom', desc: 'Floating bar at the bottom of the screen.' },
-                  { id: 'interstitial', name: 'Interstitial', desc: 'Full screen popup on navigation.' }
-                ].map((slot) => {
-                  const activeAd = ads.find(a => a.placement === slot.id && a.is_active);
-                  return (
-                    <div key={slot.id} className="bg-[#16191f] p-6 rounded-3xl border border-[#272a31] flex flex-col space-y-4">
-                       <div className="flex justify-between items-start">
-                          <div>
-                             <h4 className="font-bold text-sm text-white">{slot.name}</h4>
-                             <p className="text-[10px] text-gray-500">{slot.desc}</p>
-                          </div>
-                          {activeAd ? (
-                            <span className="bg-green-500/10 text-green-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-green-500/20">Active</span>
-                          ) : (
-                            <span className="bg-red-500/10 text-red-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-red-500/20">Inactive</span>
-                          )}
-                       </div>
-
-                       <div className={`flex-1 min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all relative overflow-hidden group/box ${
-                         activeAd ? 'border-green-600/20 bg-green-600/5' : 'border-gray-800 bg-gray-900/30 hover:border-gray-700 hover:bg-gray-900/50'
-                       }`}>
-                          {/* Diagonal Pattern Background for Empty State */}
-                          {!activeAd && (
-                             <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
-                                  style={{ backgroundImage: 'linear-gradient(45deg, #ffffff 25%, transparent 25%, transparent 50%, #ffffff 50%, #ffffff 75%, transparent 75%, transparent)', backgroundSize: '20px 20px' }}>
-                             </div>
-                          )}
-
-                          {activeAd ? (
-                            <div className="text-center space-y-2 relative z-10">
-                               <i className="fa-solid fa-check-circle text-2xl text-green-600"></i>
-                               <p className="text-[10px] font-bold text-gray-400">Script configured successfully</p>
-                               <p className="text-[8px] text-gray-600 truncate max-w-[150px] font-mono">ID: {activeAd.id}</p>
-                            </div>
-                          ) : (
-                            <div className="text-center space-y-2 relative z-10">
-                               <div className="w-12 h-12 rounded-full bg-[#272a31] flex items-center justify-center mx-auto mb-2 text-gray-500 group-hover/box:scale-110 transition-transform shadow-inner">
-                                  <i className="fa-solid fa-code text-lg"></i>
-                               </div>
-                               <p className="text-[11px] font-black text-gray-400 uppercase tracking-wide">Ad Script Not Configured Yet</p>
-                               <p className="text-[9px] text-gray-600 px-4">Place your ad code to activate this slot.</p>
-                            </div>
-                          )}
-                       </div>
-                       
-                       <button className={`w-full py-2 rounded-xl text-[10px] font-bold transition-all border ${
-                         activeAd ? 'border-red-600/20 text-red-500 hover:bg-red-600/10' : 'border-gray-700 text-gray-500 hover:text-white hover:border-gray-500 hover:bg-gray-800'
-                       }`}>
-                          {activeAd ? 'Disable Script' : 'Configure Slot'}
-                       </button>
-                    </div>
-                  );
-                })}
               </div>
            </div>
         </div>

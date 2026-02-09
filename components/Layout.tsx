@@ -107,10 +107,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </nav>
 
         <div className="p-6 border-t border-[#272a31] space-y-2">
-          <Link to="/admin" className="flex items-center space-x-3 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
-            <i className="fa-solid fa-gear w-5"></i>
-            <span className="text-sm font-medium">Admin Panel</span>
-          </Link>
           {user ? (
             <button 
               onClick={handleLogout}

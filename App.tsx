@@ -8,6 +8,7 @@ import WatchPage from './pages/WatchPage.tsx';
 import SearchPage from './pages/SearchPage.tsx';
 import DiscoveryPage from './pages/DiscoveryPage.tsx';
 import AdminDashboard from './pages/AdminDashboard.tsx';
+import AdminLoginPage from './pages/AdminLoginPage.tsx';
 
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="flex flex-col items-center justify-center h-[70vh] space-y-4">
@@ -16,6 +17,12 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
     <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Halaman ini sedang dalam pengembangan.</p>
   </div>
 );
+
+// Protected Admin Route
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAdmin = sessionStorage.getItem('admin_auth') === 'true';
+  return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
+};
 
 const App: React.FC = () => {
   return (
@@ -27,7 +34,17 @@ const App: React.FC = () => {
           <Route path="/discovery" element={<DiscoveryPage />} />
           <Route path="/anime/:id" element={<AnimeDetailPage />} />
           <Route path="/watch/:animeId/:epId" element={<WatchPage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          
+          {/* Admin Routes */}
+          <Route path="/adminlogin" element={<AdminLoginPage />} />
+          <Route 
+            path="/admin" 
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
           
           <Route path="/community" element={<PlaceholderPage title="Community" />} />
           <Route path="/coming-soon" element={<PlaceholderPage title="Coming Soon" />} />
