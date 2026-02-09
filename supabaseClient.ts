@@ -7,8 +7,8 @@ import { createClient } from '@supabase/supabase-js';
  * Settings -> API -> Project URL & anon public key
  */
 
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co'; // GANTI DENGAN URL ANDA
-const SUPABASE_ANON_KEY = 'YOUR_ANON_PUBLIC_KEY';           // GANTI DENGAN ANON KEY ANDA
+const SUPABASE_URL = 'https://jvwwazeuxmisehplhmtl.supabase.co'; // GANTI DENGAN URL ANDA
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2d3dhemV1eG1pc2VocGxobXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODM2NjUsImV4cCI6MjA4NDA1OTY2NX0.72ydk1kZOO_WnQthfHKyuFZHJwmxk0Zi4kOWjkYLzy0';           // GANTI DENGAN ANON KEY ANDA
 
 // Fungsi helper untuk mengambil dari env atau hardcoded
 const getEnv = (key: string): string => {
