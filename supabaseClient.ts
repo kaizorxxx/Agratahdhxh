@@ -29,7 +29,7 @@ const getEnv = (key: string): string => {
 };
 
 const url = getEnv('https://jvwwazeuxmisehplhmtl.supabase.co');
-const key = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+const key = getEnv('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2d3dhemV1eG1pc2VocGxobXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODM2NjUsImV4cCI6MjA4NDA1OTY2NX0.72ydk1kZOO_WnQthfHKyuFZHJwmxk0Zi4kOWjkYLzy0');
 
 // Validasi sederhana agar tidak crash jika belum diisi
 if (!url || url.includes('placeholder') || !key || key.includes('placeholder')) {
