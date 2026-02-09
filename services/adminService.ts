@@ -3,13 +3,37 @@ import { supabase } from '../supabaseClient.ts';
 
 /**
  * Service untuk mengelola data administratif menggunakan sistem keys.
- * Pola ini memudahkan pengelolaan identitas data di database atau local storage.
  */
 class AdminService {
+  // Keys yang Anda minta untuk identifikasi data
+  private userKey = 'nova_anime_current_user';
+  private usersDbKey = 'nova_anime_users_db';
   private adsKey = 'nova_anime_ads_config';
   private statsKey = 'nova_anime_stats';
 
-  // Mendapatkan semua script iklan yang aktif
+  // Mengambil user saat ini dari session (userKey logic)
+  async getCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      console.log(`[${this.userKey}] User detected:`, user.email);
+    }
+    return user;
+  }
+
+  // Mengambil daftar semua user (usersDbKey logic)
+  async getAllUsers() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*');
+    
+    if (error) {
+      console.error(`[${this.usersDbKey}] Error:`, error);
+      return [];
+    }
+    return data;
+  }
+
+  // Mendapatkan semua script iklan yang aktif (adsKey logic)
   async getActiveAds() {
     const { data, error } = await supabase
       .from('ads')
@@ -17,18 +41,18 @@ class AdminService {
       .eq('is_active', true);
     
     if (error) {
-      console.error(`[${this.adsKey}] Error fetching ads:`, error);
+      console.error(`[${this.adsKey}] Error:`, error);
       return [];
     }
     return data;
   }
 
-  // Mengupdate statistik (misal: tambah view)
+  // Mengupdate statistik menggunakan RPC increment_stat (statsKey logic)
   async incrementStat(key: 'total_views' | 'ad_clicks') {
-    const { data, error } = await supabase.rpc('increment_stat', { stat_key: key });
+    const { error } = await supabase.rpc('increment_stat', { stat_key: key });
     
     if (error) {
-      // Fallback jika RPC belum dibuat: Update manual via filter
+      console.warn(`[${this.statsKey}] RPC failed, falling back to manual update:`, error);
       const { data: current } = await supabase.from('stats').select('value_int').eq('key', key).single();
       if (current) {
         await supabase.from('stats').update({ value_int: current.value_int + 1 }).eq('key', key);
@@ -39,22 +63,15 @@ class AdminService {
   // Mendapatkan dashboard stats
   async getDashboardStats() {
     const { data, error } = await supabase.from('stats').select('*');
-    if (error) return null;
+    if (error) {
+      console.error(`[${this.statsKey}] Error:`, error);
+      return null;
+    }
     
-    // Transform array ke object based on keys
     return data.reduce((acc: any, curr: any) => {
       acc[curr.key] = curr.value_int;
       return acc;
     }, {});
-  }
-
-  // Auth helper (Simulasi user management jika diperlukan di luar Supabase Auth)
-  async getAdminProfiles() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'admin');
-    return data;
   }
 }
 
