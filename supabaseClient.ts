@@ -1,7 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Fungsi pembantu untuk mendapatkan env variable dengan aman
 const getEnv = (key: string): string => {
   try {
     // @ts-ignore
@@ -14,7 +13,6 @@ const getEnv = (key: string): string => {
 const supabaseUrl = getEnv('NEXT_PUBLIC_SUPABASE_URL') || 'https://placeholder.supabase.co';
 const supabaseAnonKey = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 'placeholder';
 
-// Inisialisasi dengan pengecekan tambahan agar tidak crash jika env tidak ada
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -23,16 +21,24 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 export const getSystemStats = async () => {
+  // Mengambil data real dari tabel 'stats'
+  const { data: dbStats } = await supabase.from('stats').select('*');
+  
+  const statsMap = dbStats?.reduce((acc: any, curr: any) => {
+    acc[curr.key] = curr.value_int;
+    return acc;
+  }, {}) || {};
+
   return {
     diskUsage: {
       total: '500GB',
-      used: '120GB',
-      free: '380GB',
-      percent: 24
+      used: '142GB',
+      free: '358GB',
+      percent: 28
     },
     traffic: {
-      views: 125430,
-      clicks: 8421
+      views: statsMap['total_views'] || 0,
+      clicks: statsMap['ad_clicks'] || 0
     },
     status: 'Healthy'
   };

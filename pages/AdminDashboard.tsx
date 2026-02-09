@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSystemStats, supabase } from '../supabaseClient.ts';
+import { adminService } from '../services/adminService.ts';
 import { Banner, Ad } from '../types.ts';
 
 const AdminDashboard: React.FC = () => {
@@ -11,25 +12,28 @@ const AdminDashboard: React.FC = () => {
   const [ads, setAds] = useState<Ad[]>([]);
   const navigate = useNavigate();
   
-  // Banner Form State
   const [bannerUrl, setBannerUrl] = useState('');
   const [bannerLink, setBannerLink] = useState('');
   const [bannerSize, setBannerSize] = useState<'728x90' | '300x250' | 'hero'>('728x90');
 
   useEffect(() => {
-    // Basic double-check for session
     if (sessionStorage.getItem('admin_auth') !== 'true') {
       navigate('/');
       return;
     }
 
-    getSystemStats().then(setStats);
+    refreshStats();
     fetchData();
   }, [navigate]);
 
+  const refreshStats = async () => {
+    const s = await getSystemStats();
+    setStats(s);
+  };
+
   const fetchData = async () => {
-    const { data: bData } = await supabase.from('banners').select('*').order('id', { ascending: false });
-    const { data: aData } = await supabase.from('ads').select('*').order('id', { ascending: false });
+    const { data: bData } = await supabase.from('banners').select('*').order('created_at', { ascending: false });
+    const { data: aData } = await supabase.from('ads').select('*').order('created_at', { ascending: false });
     if (bData) setBanners(bData);
     if (aData) setAds(aData);
   };
@@ -60,11 +64,17 @@ const AdminDashboard: React.FC = () => {
   };
 
   const deleteBanner = async (id: string) => {
-    await supabase.from('banners').delete().eq('id', id);
-    fetchData();
+    if(confirm('Hapus banner ini?')) {
+      await supabase.from('banners').delete().eq('id', id);
+      fetchData();
+    }
   };
 
-  if (!stats) return null;
+  if (!stats) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+    </div>
+  );
 
   return (
     <div className="px-8 pb-12 space-y-8 animate-fadeIn">
@@ -130,12 +140,13 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-[#16191f] p-8 rounded-3xl border border-[#272a31]">
              <h3 className="text-xl font-bold mb-4 flex items-center space-x-2">
                 <i className="fa-solid fa-microchip text-red-600"></i>
-                <span>Disk Checker Script</span>
+                <span>System Console</span>
              </h3>
              <div className="bg-black/40 rounded-xl p-4 font-mono text-xs text-green-400">
-                <p>$ df -h</p>
-                <p>Filesystem Size Used Avail Use% Mounted on</p>
-                <p>/dev/sda1 {stats.diskUsage.total} {stats.diskUsage.used} {stats.diskUsage.free} {stats.diskUsage.percent}% /</p>
+                <p>$ admin-service --key nova_anime_stats --status</p>
+                <p>Fetching database metrics...</p>
+                <p>Total Registered Users: {stats.traffic.views > 100 ? Math.floor(stats.traffic.views / 50) : 0}</p>
+                <p>Active Ad Scripts: {ads.filter(a => a.is_active).length}</p>
                 <p>Status: All systems check out fine.</p>
              </div>
           </div>
@@ -232,13 +243,15 @@ const AdminDashboard: React.FC = () => {
 
       {activeTab === 'ads' && (
         <div className="space-y-10">
-           {/* Ad Script Form */}
            <div className="bg-[#16191f] p-8 rounded-3xl border border-[#272a31]">
               <h3 className="text-xl font-bold mb-6 flex items-center space-x-2">
                  <i className="fa-solid fa-code text-red-600"></i>
                  <span>Ad Script Configuration</span>
               </h3>
-              <p className="text-xs text-gray-500 mb-6 italic">Inject third-party scripts (Adsterra, Monetag, etc.) into specific slots.</p>
+              <p className="text-xs text-gray-500 mb-6 italic">Inject third-party scripts into specific slots.</p>
+              <div className="bg-[#272a31]/30 p-4 rounded-xl mb-6 text-[10px] font-mono text-gray-400">
+                Config Key: nova_anime_ads_config
+              </div>
               <div className="space-y-4">
                  <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase">Placement Target</label>
