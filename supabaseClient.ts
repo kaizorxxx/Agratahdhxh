@@ -19,8 +19,8 @@ const getEnv = (key: string): string => {
     if (envVal) return envVal;
     
     // Fallback ke hardcoded jika env kosong
-    if (key === 'NEXT_PUBLIC_SUPABASE_URL') return SUPABASE_URL;
-    if (key === 'NEXT_PUBLIC_SUPABASE_ANON_KEY') return SUPABASE_ANON_KEY;
+    if (key === 'https://jvwwazeuxmisehplhmtl.supabase.coL') return SUPABASE_URL;
+    if (key === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2d3dhemV1eG1pc2VocGxobXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODM2NjUsImV4cCI6MjA4NDA1OTY2NX0.72ydk1kZOO_WnQthfHKyuFZHJwmxk0Zi4kOWjkYLzy0') return SUPABASE_ANON_KEY;
     
     return '';
   } catch (e) {
@@ -28,7 +28,7 @@ const getEnv = (key: string): string => {
   }
 };
 
-const url = getEnv('NEXT_PUBLIC_SUPABASE_URL');
+const url = getEnv('https://jvwwazeuxmisehplhmtl.supabase.co');
 const key = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
 // Validasi sederhana agar tidak crash jika belum diisi
