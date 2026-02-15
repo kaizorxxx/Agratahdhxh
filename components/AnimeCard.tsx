@@ -18,6 +18,11 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime }) => {
 
   const FALLBACK_IMAGE = "https://via.placeholder.com/300x450/000000/333333?text=GENZURO";
 
+  // Data formatting
+  const displayDate = anime.release_date || 'Unknown';
+  const displayScore = anime.score || 'N/A';
+  const displayEpisodes = anime.total_episodes;
+
   return (
     <div className="group space-y-4 w-full animate-fadeIn transition-transform duration-500">
       <Link to={targetLink} className="relative block aspect-[2/3] rounded-[24px] overflow-hidden bg-[#111] shadow-2xl transition-all duration-500 transform group-hover:scale-[1.03] group-hover:z-10 group-hover:shadow-[0_20px_40px_-15px_rgba(220,38,38,0.4)] border border-white/5">
@@ -65,13 +70,25 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime }) => {
         <h3 className="font-black text-sm text-white line-clamp-1 group-hover:text-red-500 transition-colors uppercase italic tracking-tighter">
           {anime.title}
         </h3>
-        <div className="flex items-center space-x-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-          <span>2024</span>
+        <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+          {/* Release Date */}
+          <span className="truncate max-w-[80px]">{displayDate}</span>
+          
           <div className="w-1 h-1 bg-white/10 rounded-full"></div>
+          
+          {/* Score */}
           <div className="flex items-center space-x-1.5 group-hover:text-yellow-500 transition-colors">
             <i className="fa-solid fa-star text-[7px]"></i>
-            <span>8.9</span>
+            <span>{displayScore}</span>
           </div>
+
+          {/* Episodes */}
+          {displayEpisodes && (
+             <>
+                <div className="w-1 h-1 bg-white/10 rounded-full"></div>
+                <span className="text-gray-400">{displayEpisodes} Eps</span>
+             </>
+          )}
         </div>
       </div>
 
