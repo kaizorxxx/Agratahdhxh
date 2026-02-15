@@ -9,6 +9,7 @@ import SearchPage from './pages/SearchPage.tsx';
 import DiscoveryPage from './pages/DiscoveryPage.tsx';
 import AdminDashboard from './pages/AdminDashboard.tsx';
 import AdminLoginPage from './pages/AdminLoginPage.tsx';
+import ProfilePage from './pages/ProfilePage.tsx';
 
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="flex flex-col items-center justify-center h-[70vh] space-y-4">
@@ -34,6 +35,7 @@ const App: React.FC = () => {
           <Route path="/discovery" element={<DiscoveryPage />} />
           <Route path="/anime/:id" element={<AnimeDetailPage />} />
           <Route path="/watch/:animeId/:epId" element={<WatchPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           
           {/* Admin Routes */}
           <Route path="/adminlogin" element={<AdminLoginPage />} />
@@ -53,7 +55,6 @@ const App: React.FC = () => {
           <Route path="/recent" element={<HomePage />} />
           <Route path="/collection" element={<PlaceholderPage title="My Collection" />} />
           <Route path="/download" element={<PlaceholderPage title="Downloads" />} />
-          <Route path="/profile" element={<PlaceholderPage title="User Profile" />} />
           
           {/* Catch-all route to prevent 404 within the app */}
           <Route path="*" element={<Navigate to="/" replace />} />

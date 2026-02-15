@@ -10,10 +10,8 @@ const HomePage: React.FC = () => {
   const [popular, setPopular] = useState<Anime[]>([]);
   const [recent, setRecent] = useState<Anime[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   
-  // State Infinite Scroll
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -21,7 +19,10 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
 
-  // Sensor element untuk Infinite Scroll
+  const genres = [
+    'Action', 'Adventure', 'Biography', 'Crime', 'Comedy', 'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror'
+  ];
+
   const lastElementRef = useCallback((node: HTMLDivElement | null) => {
     if (isLoading || isFetchingMore) return;
     if (observer.current) observer.current.disconnect();
@@ -35,7 +36,6 @@ const HomePage: React.FC = () => {
     if (node) observer.current.observe(node);
   }, [isLoading, isFetchingMore, hasMore]);
 
-  // Load Initial Data
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
@@ -48,7 +48,6 @@ const HomePage: React.FC = () => {
         setRecent(Array.isArray(recData) ? recData : []);
         setHistory(getHistory());
       } catch (e) {
-        console.error("Home loading error:", e);
         setPopular([]);
         setRecent([]);
       } finally {
@@ -58,7 +57,6 @@ const HomePage: React.FC = () => {
     loadInitialData();
   }, []);
 
-  // Fetch Next Page
   useEffect(() => {
     if (page <= 1) return;
 
@@ -85,147 +83,156 @@ const HomePage: React.FC = () => {
     loadMore();
   }, [page]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-    }
-  };
-
   if (isLoading && recent.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] space-y-4">
         <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">Menghubungkan ke Server...</p>
+        <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">Entering Genzuro World...</p>
       </div>
     );
   }
 
+  const heroAnime = popular[0] || recent[0];
+
   return (
-    <div className="px-8 pb-12 space-y-12 animate-fadeIn">
-      {/* Search Bar */}
-      <div className="flex justify-end mb-4">
-        <form onSubmit={handleSearch} className="relative w-full max-w-md">
-           <input 
-            type="text" 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search anime..." 
-            className="w-full bg-[#16191f] border border-[#272a31] rounded-full py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-red-600 transition-all shadow-inner text-white"
-           />
-           <i className="fa-solid fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"></i>
-        </form>
+    <div className="pb-20 animate-fadeIn bg-black min-h-screen">
+      
+      {/* Cinematic Hero Section (Netflix Style) */}
+      {heroAnime && (
+        <section className="relative h-[90vh] w-full overflow-hidden">
+          {/* Backdrop Image */}
+          <div className="absolute inset-0">
+            <img 
+              src={heroAnime.poster} 
+              alt={heroAnime.title}
+              className="w-full h-full object-cover scale-105" 
+            />
+            {/* Dark Vignette Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
+          </div>
+
+          {/* Hero Content Overlay */}
+          <div className="absolute bottom-32 left-8 md:left-16 max-w-2xl z-10 space-y-6">
+            <div className="flex flex-col space-y-3">
+              <p className="text-white/70 text-[10px] md:text-xs font-black uppercase tracking-[0.2em]">
+                SEASON 1 • 12 EPISODES
+              </p>
+              
+              <div className="flex items-center space-x-4 text-xs font-bold">
+                 <div className="flex items-center space-x-1 text-yellow-500">
+                    <i className="fa-solid fa-star text-[10px]"></i>
+                    <span>9.4</span>
+                 </div>
+                 <span className="text-gray-400">2024</span>
+                 <span className="text-gray-400">Exciting Story</span>
+                 <span className="text-gray-400">1 Season</span>
+              </div>
+            </div>
+
+            <h1 className="text-5xl md:text-8xl font-[900] text-white tracking-tighter uppercase italic leading-none drop-shadow-2xl">
+              {heroAnime.title}
+            </h1>
+
+            <p className="text-gray-300 text-sm md:text-base font-medium leading-relaxed max-w-xl opacity-90">
+              {heroAnime.description || "A thrilling journey through mystery and action. Discover the truth behind the chaos in this premium GENZURO original series."}
+            </p>
+
+            <div className="flex items-center space-x-4 pt-6">
+              <Link 
+                to={`/anime/${encodeURIComponent(heroAnime.id)}`} 
+                className="bg-red-600 hover:bg-red-700 text-white px-10 py-4 rounded-lg font-black transition-all flex items-center space-x-3 shadow-2xl shadow-red-600/30 group"
+              >
+                <i className="fa-solid fa-play text-lg group-hover:scale-110 transition-transform"></i>
+                <span className="tracking-widest text-xs uppercase">Watch</span>
+              </Link>
+              <button className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-lg font-black transition-all flex items-center space-x-3 group">
+                <i className="fa-solid fa-plus text-lg group-hover:rotate-90 transition-transform"></i>
+                <span className="tracking-widest text-xs uppercase">Add List</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Slider Indicators (Visual Only) */}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex space-x-3">
+            <div className="w-8 h-1 bg-white/50 rounded-full"></div>
+            <div className="w-8 h-1 bg-white rounded-full"></div>
+            <div className="w-8 h-1 bg-white/50 rounded-full"></div>
+          </div>
+        </section>
+      )}
+
+      {/* Categories / Genre Filter Bar */}
+      <div className="relative z-20 -mt-10 px-8">
+        <div className="flex items-center space-x-3 overflow-x-auto hide-scrollbar pb-10">
+           {genres.map((genre) => (
+             <button 
+                key={genre}
+                className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
+                  genre === 'Crime' || genre === 'Action' || genre === 'Drama' 
+                  ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20' 
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                }`}
+             >
+                {genre}
+             </button>
+           ))}
+        </div>
       </div>
 
-      {/* Hero Section */}
-      {popular && popular.length > 0 && (
-        <section>
-          <div className="relative h-[480px] rounded-[40px] overflow-hidden group shadow-2xl border border-white/5 transform-gpu">
-            <img 
-              src={popular[0].poster} 
-              alt={popular[0].title}
-              onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/728x400?text=Error+Loading+Image')}
-              className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0f1115] via-[#0f1115]/40 to-transparent"></div>
-            <div className="absolute bottom-12 left-12 max-w-2xl space-y-4">
-              <h1 className="text-6xl font-black text-white tracking-tighter line-clamp-2 uppercase italic">{popular[0].title}</h1>
-              <div className="flex items-center space-x-6">
-                 {popular[0].score && (
-                   <div className="flex items-center space-x-2 text-yellow-500 font-black">
-                      <i className="fa-solid fa-star"></i>
-                      <span>{popular[0].score}</span>
-                   </div>
-                 )}
-                 <span className="text-gray-300 font-bold uppercase tracking-widest text-xs">Featured Anime</span>
-              </div>
-              <div className="flex items-center space-x-4 pt-6">
-                <Link to={`/anime/${encodeURIComponent(popular[0].id)}`} className="bg-red-600 hover:bg-red-700 text-white px-12 py-5 rounded-[20px] font-black transition-all flex items-center space-x-3 shadow-2xl shadow-red-600/40">
-                  <i className="fa-solid fa-play text-xl"></i>
-                  <span className="tracking-widest text-sm uppercase">Watch Now</span>
-                </Link>
-              </div>
+      <div className="px-8 space-y-16">
+        {/* Continue Watching */}
+        {history.length > 0 && (
+          <section>
+            <h2 className="text-xl font-black mb-6 flex items-center space-x-3 uppercase tracking-tighter italic">
+              <i className="fa-solid fa-history text-red-600"></i>
+              <span>Keep Watching</span>
+            </h2>
+            <div className="flex space-x-6 overflow-x-auto pb-6 hide-scrollbar snap-x">
+               {history.map((item) => (
+                  <Link to={`/watch/${encodeURIComponent(item.anime_id)}/${encodeURIComponent(item.ep_id)}`} key={item.id} className="min-w-[280px] snap-start group">
+                     <div className="relative aspect-video rounded-xl overflow-hidden bg-[#16191f] border border-white/5 shadow-xl">
+                        <img src={item.anime_poster} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80" alt="" />
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
+                           <div className="h-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.8)]" style={{ width: `${item.duration ? (item.timestamp/item.duration)*100 : 0}%` }}></div>
+                        </div>
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                           <i className="fa-solid fa-play text-white text-3xl"></i>
+                        </div>
+                     </div>
+                     <h4 className="mt-3 text-sm font-black truncate uppercase text-white/90">{item.anime_title}</h4>
+                     <p className="text-[10px] text-gray-500 truncate mt-1 font-bold uppercase tracking-widest">{item.ep_title}</p>
+                  </Link>
+               ))}
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {/* Continue Watching */}
-      {history.length > 0 && (
+        {/* Latest Updates / Trends Now */}
         <section>
-          <h2 className="text-xl font-bold mb-6 flex items-center space-x-2 uppercase tracking-tighter">
-            <i className="fa-solid fa-clock-rotate-left text-red-600"></i>
-            <span>Continue Watching</span>
-          </h2>
-          <div className="flex space-x-6 overflow-x-auto pb-6 custom-scrollbar snap-x">
-             {history.map((item) => (
-                <Link to={`/watch/${encodeURIComponent(item.anime_id)}/${encodeURIComponent(item.ep_id)}`} key={item.id} className="min-w-[240px] snap-start group">
-                   <div className="relative aspect-video rounded-2xl overflow-hidden bg-[#16191f] border border-white/5 transform-gpu">
-                      <img src={item.anime_poster} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80" alt="" />
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800">
-                         <div className="h-full bg-red-600" style={{ width: `${item.duration ? (item.timestamp/item.duration)*100 : 0}%` }}></div>
-                      </div>
-                   </div>
-                   <h4 className="mt-3 text-xs font-black truncate uppercase">{item.anime_title}</h4>
-                   <p className="text-[10px] text-gray-400 truncate mt-1">{item.ep_title}</p>
-                </Link>
-             ))}
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-black tracking-tight uppercase italic flex items-center space-x-3">
+              <i className="fa-solid fa-chart-line text-red-600"></i>
+              <span>Trends Now</span>
+            </h2>
+            <div className="h-[2px] flex-1 bg-white/5 mx-6 hidden md:block"></div>
           </div>
-        </section>
-      )}
-
-      {/* Latest Updates Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-        <div className="lg:col-span-3">
-          <h2 className="text-2xl font-black tracking-tight uppercase italic mb-8">Latest Updates</h2>
           
-          {recent.length === 0 && !isLoading ? (
-             <div className="text-center py-10 bg-[#16191f] rounded-3xl border border-red-900/30">
-                <i className="fa-solid fa-triangle-exclamation text-3xl text-red-600 mb-4"></i>
-                <p className="font-bold text-gray-400">Gagal memuat data.</p>
-                <p className="text-xs text-gray-600 mt-2">Cek Console (F12) untuk detail error.</p>
-             </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-              {recent.map((anime, idx) => (
-                <AnimeCard key={`${anime.id}-${idx}`} anime={anime} />
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {recent.map((anime, idx) => (
+              <AnimeCard key={`${anime.id}-${idx}`} anime={anime} />
+            ))}
+          </div>
 
           {/* Infinite Scroll Sensor */}
-          <div ref={lastElementRef} className="h-20 flex items-center justify-center mt-10">
-            {isFetchingMore && (
+          <div ref={lastElementRef} className="h-20 flex items-center justify-center mt-12">
+            {isFetchingMore ? (
                <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-            )}
-            {!hasMore && recent.length > 0 && (
-               <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">— No More Updates —</span>
+            ) : (
+               <div className="h-[1px] w-full bg-white/5"></div>
             )}
           </div>
-        </div>
-
-        {/* Sidebar Recommended */}
-        <aside className="hidden lg:block">
-           <div className="bg-[#16191f]/40 p-8 rounded-[40px] border border-white/5 sticky top-8">
-              <h2 className="text-lg font-black mb-8 flex items-center space-x-3 uppercase">
-                 <div className="w-10 h-10 bg-red-600 rounded-2xl flex items-center justify-center">
-                    <i className="fa-solid fa-fire text-sm text-white"></i>
-                 </div>
-                 <span>Hot Now</span>
-              </h2>
-              <div className="space-y-6">
-                {popular.slice(1, 7).map((anime, idx) => (
-                  <Link to={`/anime/${encodeURIComponent(anime.id)}`} key={`${anime.id}-${idx}`} className="flex items-center space-x-4 group">
-                    <img src={anime.poster} className="w-16 h-20 rounded-xl object-cover border border-white/10" alt="" />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-black line-clamp-2 group-hover:text-red-500 transition-colors uppercase">{anime.title}</h4>
-                      {anime.score && <span className="text-[10px] text-yellow-500 font-black mt-2 inline-block">★ {anime.score}</span>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-           </div>
-        </aside>
+        </section>
       </div>
     </div>
   );

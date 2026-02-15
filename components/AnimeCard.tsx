@@ -1,107 +1,86 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Anime } from '../types.ts';
 import { getAnimeSlug } from '../services/animeApi.ts';
 
 interface AnimeCardProps {
   anime: Anime;
-  priority?: boolean; // If true, eager load (optional usage)
 }
 
 const AnimeCard: React.FC<AnimeCardProps> = ({ anime }) => {
   const [imageStatus, setImageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
-  // Logic to determine if it's an episode (Latest Updates) or a Series
-  const isLikelyEpisode = anime.id.includes('-episode-');
   const animeSlug = getAnimeSlug(anime.id);
   
-  const targetLink = isLikelyEpisode 
-    ? `/watch/${encodeURIComponent(animeSlug)}/${encodeURIComponent(anime.id)}`
-    : `/anime/${encodeURIComponent(anime.id)}`;
+  // Point to Anime Detail (Cover) Page instead of direct watch
+  const targetLink = `/anime/${encodeURIComponent(animeSlug)}`;
 
-  const handleImageLoad = () => setImageStatus('loaded');
-  const handleImageError = () => setImageStatus('error');
-
-  // Thematic Placeholder (Dark minimalist or specific asset)
-  const FALLBACK_IMAGE = "https://via.placeholder.com/300x450/16191f/374151?text=ANIME-X";
+  const FALLBACK_IMAGE = "https://via.placeholder.com/300x450/000000/333333?text=GENZURO";
 
   return (
-    <Link to={targetLink} className="group block space-y-3 w-full">
-      <div className="relative aspect-[3/4.5] rounded-[24px] overflow-hidden bg-[#16191f] border border-white/5 shadow-lg transform-gpu">
+    <div className="group space-y-4 w-full animate-fadeIn transition-transform duration-500">
+      <Link to={targetLink} className="relative block aspect-[2/3] rounded-[24px] overflow-hidden bg-[#111] shadow-2xl transition-all duration-500 transform group-hover:scale-[1.03] group-hover:z-10 group-hover:shadow-[0_20px_40px_-15px_rgba(220,38,38,0.4)] border border-white/5">
         
-        {/* Loading Skeleton / Blur Placeholder */}
-        <div 
-          className={`absolute inset-0 bg-gray-800 animate-pulse transition-opacity duration-500 ${
-            imageStatus === 'loading' ? 'opacity-100 z-10' : 'opacity-0 z-0'
-          }`} 
-        />
+        {imageStatus === 'loading' && (
+          <div className="absolute inset-0 z-10 overflow-hidden bg-[#1a1c22]">
+            <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+               <div className="w-10 h-10 border-2 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
+            </div>
+          </div>
+        )}
 
-        {/* Actual Image */}
         <img 
           src={imageStatus === 'error' ? FALLBACK_IMAGE : anime.poster} 
           alt={anime.title} 
           loading="lazy"
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          className={`w-full h-full object-cover transform group-hover:scale-110 transition-all duration-700 ease-in-out ${
-            imageStatus === 'loaded' ? 'opacity-100 blur-0' : 'opacity-0 blur-sm'
-          }`} 
+          onLoad={() => setImageStatus('loaded')}
+          onError={() => setImageStatus('error')}
+          className={`w-full h-full object-cover transition-all duration-700 ${imageStatus === 'loaded' ? 'opacity-100' : 'opacity-0'} group-hover:scale-110`} 
         />
         
-        {/* Error State Overlay (Optional aesthetic touch on top of fallback) */}
-        {imageStatus === 'error' && (
-           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-20">
-              <i className="fa-solid fa-image text-gray-500 text-3xl mb-2"></i>
-           </div>
-        )}
-
-        {/* Score Badge */}
-        {anime.score && (
-          <div className="absolute top-3 left-3 z-30 bg-black/80 backdrop-blur-sm px-2 py-1 rounded-lg text-[9px] font-black text-yellow-500 flex items-center space-x-1 border border-white/10 pointer-events-none">
-              <i className="fa-solid fa-star text-[7px]"></i>
-              <span>{anime.score}</span>
-          </div>
-        )}
-        
-        {/* Status Badge */}
-        <div className="absolute bottom-3 left-3 right-3 z-30 flex justify-between items-end">
-            {anime.status && (
-              <div className="bg-red-600 px-2 py-0.5 rounded text-[8px] font-black text-white uppercase tracking-tighter shadow-sm">
-                {anime.status}
-              </div>
-            )}
-            
-            {anime.total_episodes && (
-                <div className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[8px] text-white font-bold border border-white/10">
-                  EP {anime.total_episodes}
-                </div>
-            )}
+        <div className="absolute top-4 right-4 flex flex-col items-end gap-2 pointer-events-none z-20">
+          {anime.status && (
+            <span className="bg-red-600/90 backdrop-blur-md text-white text-[8px] font-black px-3 py-1 rounded-full shadow-xl uppercase tracking-widest border border-white/10">
+              {anime.status}
+            </span>
+          )}
         </div>
 
-        {/* Play Icon Overlay for Episodes */}
-        {isLikelyEpisode && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none bg-black/20">
-              <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                <i className="fa-solid fa-play text-white ml-1"></i>
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-6 z-20">
+           <div className="flex items-center space-x-3 translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+              <div className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-lg transform group-hover:rotate-[360deg] transition-transform duration-700">
+                 <i className="fa-solid fa-play text-[10px] ml-0.5"></i>
               </div>
-          </div>
-        )}
-
-        {/* Hover Text Overlay (Discovery Style) */}
-        {!isLikelyEpisode && (
-           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4 z-20">
-              <div className="w-full py-2 bg-white rounded-lg text-center text-[10px] font-black text-black uppercase tracking-widest transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                Details
+              <div className="flex-1">
+                  <p className="text-[10px] font-black uppercase text-red-600 mb-0.5">View Detail</p>
+                  <p className="text-[8px] font-bold text-gray-300 uppercase tracking-widest">Genzuro Original</p>
               </div>
            </div>
-        )}
+        </div>
+      </Link>
+
+      <div className="px-1 space-y-1.5">
+        <h3 className="font-black text-sm text-white line-clamp-1 group-hover:text-red-500 transition-colors uppercase italic tracking-tighter">
+          {anime.title}
+        </h3>
+        <div className="flex items-center space-x-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+          <span>2024</span>
+          <div className="w-1 h-1 bg-white/10 rounded-full"></div>
+          <div className="flex items-center space-x-1.5 group-hover:text-yellow-500 transition-colors">
+            <i className="fa-solid fa-star text-[7px]"></i>
+            <span>8.9</span>
+          </div>
+        </div>
       </div>
 
-      <h3 className="font-bold text-sm text-gray-200 line-clamp-2 group-hover:text-red-500 transition-colors uppercase tracking-tight leading-snug">
-        {anime.title}
-      </h3>
-    </Link>
+      <style>{`
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+    </div>
   );
 };
 

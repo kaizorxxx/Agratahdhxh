@@ -1,77 +1,68 @@
 
-import { supabase } from '../supabaseClient.ts';
+import { auth, db } from '../firebase.ts';
+import { collection, getDocs, doc, setDoc, increment, updateDoc, getDoc } from 'firebase/firestore';
 
 /**
- * Service untuk mengelola data administratif menggunakan sistem keys.
+ * Service untuk mengelola data administratif menggunakan Firebase Firestore.
  */
 class AdminService {
-  // Keys yang Anda minta untuk identifikasi data
-  private userKey = 'nova_anime_current_user';
-  private usersDbKey = 'nova_anime_users_db';
-  private adsKey = 'nova_anime_ads_config';
-  private statsKey = 'nova_anime_stats';
-
-  // Mengambil user saat ini dari session (userKey logic)
+  
+  // Mengambil user saat ini
   async getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = auth.currentUser;
     if (user) {
-      console.log(`[${this.userKey}] User detected:`, user.email);
+      console.log(`User detected:`, user.email);
     }
     return user;
   }
 
-  // Mengambil daftar semua user (usersDbKey logic)
+  // Mengambil daftar semua user (Hanya user yang terdaftar di Firestore users collection)
   async getAllUsers() {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*');
-    
-    if (error) {
-      console.error(`[${this.usersDbKey}] Error:`, error);
+    try {
+      const querySnapshot = await getDocs(collection(db, "users"));
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error("Error fetching users:", error);
       return [];
     }
-    return data;
   }
 
-  // Mendapatkan semua script iklan yang aktif (adsKey logic)
+  // Mendapatkan semua script iklan yang aktif
   async getActiveAds() {
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('is_active', true);
-    
-    if (error) {
-      console.error(`[${this.adsKey}] Error:`, error);
+    try {
+      const querySnapshot = await getDocs(collection(db, "ads"));
+      const ads = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // @ts-ignore
+      return ads.filter(ad => ad.is_active);
+    } catch (error) {
+      console.error("Error fetching ads:", error);
       return [];
     }
-    return data;
   }
 
-  // Mengupdate statistik menggunakan RPC increment_stat (statsKey logic)
+  // Mengupdate statistik menggunakan Firestore Atomic Increment
   async incrementStat(key: 'total_views' | 'ad_clicks') {
-    const { error } = await supabase.rpc('increment_stat', { stat_key: key });
-    
-    if (error) {
-      console.warn(`[${this.statsKey}] RPC failed, falling back to manual update:`, error);
-      const { data: current } = await supabase.from('stats').select('value_int').eq('key', key).single();
-      if (current) {
-        await supabase.from('stats').update({ value_int: current.value_int + 1 }).eq('key', key);
-      }
+    try {
+      const statRef = doc(db, "stats", key);
+      await setDoc(statRef, { value: increment(1) }, { merge: true });
+    } catch (error) {
+      console.error("Error incrementing stat:", error);
     }
   }
 
   // Mendapatkan dashboard stats
   async getDashboardStats() {
-    const { data, error } = await supabase.from('stats').select('*');
-    if (error) {
-      console.error(`[${this.statsKey}] Error:`, error);
+    try {
+      const querySnapshot = await getDocs(collection(db, "stats"));
+      const stats: any = {};
+      querySnapshot.forEach((doc) => {
+        stats[doc.id] = doc.data().value;
+      });
+      return stats;
+    } catch (error) {
+      console.error("Error getting dashboard stats:", error);
       return null;
     }
-    
-    return data.reduce((acc: any, curr: any) => {
-      acc[curr.key] = curr.value_int;
-      return acc;
-    }, {});
   }
 }
 

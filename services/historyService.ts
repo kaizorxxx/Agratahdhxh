@@ -1,6 +1,7 @@
 
 import { HistoryItem } from '../types.ts';
-import { supabase } from '../supabaseClient.ts';
+import { auth, db } from '../firebase.ts';
+import { doc, setDoc, getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
 
 const LOCAL_STORAGE_KEY = 'anime_x_history';
 
@@ -13,9 +14,34 @@ export const getHistory = (): HistoryItem[] => {
   }
 };
 
+// Fungsi baru untuk mengambil history langsung dari Firestore agar permanen
+export const getUserHistoryFromFirestore = async (): Promise<HistoryItem[]> => {
+    const user = auth.currentUser;
+    if (!user) return [];
+    
+    try {
+        const historyRef = collection(db, "users", user.uid, "history");
+        const q = query(historyRef, orderBy("updated_at", "desc"), limit(50));
+        const querySnapshot = await getDocs(q);
+        
+        const history: HistoryItem[] = [];
+        querySnapshot.forEach((doc) => {
+            history.push({ id: doc.id, ...doc.data() } as HistoryItem);
+        });
+        return history;
+    } catch (e: any) {
+        if (e.code === 'permission-denied') {
+            console.warn("History fetch permission denied. Check Firestore Rules.");
+        } else {
+            console.error("Error fetching Firestore history:", e);
+        }
+        return [];
+    }
+};
+
 export const saveProgress = async (item: Omit<HistoryItem, 'id' | 'updated_at' | 'user_id'>) => {
   try {
-    // 1. Save to Local Storage
+    // 1. Save to Local Storage (Immediate feedback UI)
     const currentHistory = getHistory();
     const existingIndex = currentHistory.findIndex(h => h.anime_id === item.anime_id);
     
@@ -27,54 +53,39 @@ export const saveProgress = async (item: Omit<HistoryItem, 'id' | 'updated_at' |
     };
 
     if (existingIndex !== -1) {
-      // Update existing record and move to top
       currentHistory.splice(existingIndex, 1);
     }
     
-    // Add to beginning of array
     currentHistory.unshift(newItem);
     
-    // Limit to 20 items
     if (currentHistory.length > 20) {
       currentHistory.pop();
     }
 
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(currentHistory));
 
-    // 2. Try to sync with Supabase if user is logged in
-    const { data: { user } } = await supabase.auth.getUser();
+    // 2. Sync with Firebase (Persistent Storage)
+    const user = auth.currentUser;
     if (user) {
-      // Check if exists
-      const { data: existing } = await supabase
-        .from('history')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('anime_id', item.anime_id)
-        .single();
-
-      if (existing) {
-        await supabase.from('history').update({
-          ep_id: item.ep_id,
-          ep_title: item.ep_title,
-          timestamp: item.timestamp,
-          duration: item.duration,
-          updated_at: new Date().toISOString()
-        }).eq('id', existing.id);
-      } else {
-        await supabase.from('history').insert({
-          user_id: user.id,
-          anime_id: item.anime_id,
-          anime_title: item.anime_title,
-          anime_poster: item.anime_poster,
-          ep_id: item.ep_id,
-          ep_title: item.ep_title,
-          timestamp: item.timestamp,
-          duration: item.duration
-        });
-      }
+      const docRef = doc(db, "users", user.uid, "history", item.anime_id);
+      
+      await setDoc(docRef, {
+        anime_id: item.anime_id,
+        anime_title: item.anime_title,
+        anime_poster: item.anime_poster,
+        ep_id: item.ep_id,
+        ep_title: item.ep_title,
+        timestamp: item.timestamp,
+        duration: item.duration,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
     }
-  } catch (e) {
-    console.error("Failed to save history", e);
+  } catch (e: any) {
+    if (e.code === 'permission-denied') {
+        console.warn("Failed to sync history: Permission denied. Check Firestore Rules.");
+    } else {
+        console.error("Failed to save history", e);
+    }
   }
 };
 

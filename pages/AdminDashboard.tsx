@@ -1,15 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSystemStats, supabase } from '../supabaseClient.ts';
 import { adminService } from '../services/adminService.ts';
 import { Banner, Ad } from '../types.ts';
+import { db, auth } from '../firebase.ts';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import AuthModal from '../components/AuthModal.tsx';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('stats');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState(auth.currentUser);
   const navigate = useNavigate();
   
   const [bannerUrl, setBannerUrl] = useState('');
@@ -17,25 +21,56 @@ const AdminDashboard: React.FC = () => {
   const [bannerSize, setBannerSize] = useState<'728x90' | '300x250' | 'hero'>('728x90');
 
   useEffect(() => {
+    // Cek Session Admin (Login PIN)
     if (sessionStorage.getItem('admin_auth') !== 'true') {
       navigate('/');
       return;
     }
 
-    refreshStats();
-    fetchData();
+    // Cek Firebase Auth (Server Permission)
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+        setFirebaseUser(user);
+        if (user) {
+            refreshStats();
+            fetchData();
+        }
+    });
+
+    return () => unsubscribe();
   }, [navigate]);
 
   const refreshStats = async () => {
-    const s = await getSystemStats();
-    setStats(s);
+    const rawStats = await adminService.getDashboardStats();
+    
+    const formattedStats = {
+      diskUsage: {
+        total: '500GB',
+        used: '142GB',
+        free: '358GB',
+        percent: 28
+      },
+      traffic: {
+        views: rawStats?.total_views || 0,
+        clicks: rawStats?.ad_clicks || 0
+      },
+      status: 'Healthy'
+    };
+    
+    setStats(formattedStats);
   };
 
   const fetchData = async () => {
-    const { data: bData } = await supabase.from('banners').select('*').order('created_at', { ascending: false });
-    const { data: aData } = await supabase.from('ads').select('*').order('created_at', { ascending: false });
-    if (bData) setBanners(bData);
-    if (aData) setAds(aData);
+    try {
+        const bannersSnapshot = await getDocs(collection(db, "banners"));
+        const bannersData = bannersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner));
+        setBanners(bannersData);
+
+        const adsSnapshot = await getDocs(collection(db, "ads"));
+        const adsData = adsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ad));
+        setAds(adsData);
+    } catch (e) {
+        console.error("Failed to fetch data", e);
+    }
   };
 
   const handleAdminLogout = () => {
@@ -45,30 +80,66 @@ const AdminDashboard: React.FC = () => {
 
   const handleAddBanner = async () => {
     if (!bannerUrl || !bannerLink) return;
-    const { error } = await supabase.from('banners').insert({
-      image_url: bannerUrl,
-      link: bannerLink,
-      size: bannerSize,
-      is_active: true
-    });
-    if (!error) {
-      setBannerUrl('');
-      setBannerLink('');
-      fetchData();
+    if (!firebaseUser) {
+        alert("Harap connect ke Database terlebih dahulu (Login Firebase).");
+        setIsAuthModalOpen(true);
+        return;
+    }
+    try {
+        await addDoc(collection(db, "banners"), {
+            image_url: bannerUrl,
+            link: bannerLink,
+            size: bannerSize,
+            is_active: true,
+            created_at: new Date().toISOString()
+        });
+        setBannerUrl('');
+        setBannerLink('');
+        fetchData();
+    } catch (e: any) {
+        console.error("Error adding banner", e);
+        if (e.code === 'permission-denied') alert("Permission Denied: Pastikan Anda login.");
     }
   };
 
   const toggleBannerStatus = async (id: string, current: boolean) => {
-    await supabase.from('banners').update({ is_active: !current }).eq('id', id);
-    fetchData();
+    try {
+        await updateDoc(doc(db, "banners", id), { is_active: !current });
+        fetchData();
+    } catch (e) { console.error(e); }
   };
 
   const deleteBanner = async (id: string) => {
     if(confirm('Hapus banner ini?')) {
-      await supabase.from('banners').delete().eq('id', id);
-      fetchData();
+        try {
+            await deleteDoc(doc(db, "banners", id));
+            fetchData();
+        } catch (e) { console.error(e); }
     }
   };
+
+  // Warning jika Session Admin OK, tapi Firebase Auth belum (Permission akan gagal)
+  if (!firebaseUser) {
+    return (
+        <div className="flex flex-col items-center justify-center h-[80vh] space-y-6 animate-fadeIn">
+            <div className="w-20 h-20 bg-yellow-500/10 text-yellow-500 rounded-full flex items-center justify-center animate-pulse">
+                <i className="fa-solid fa-server text-3xl"></i>
+            </div>
+            <h2 className="text-2xl font-black text-white uppercase italic">Koneksi Database Diperlukan</h2>
+            <p className="text-gray-500 max-w-md text-center text-sm leading-relaxed">
+                Anda telah masuk sebagai Admin (Session), namun belum terhubung ke Server Firebase. 
+                Untuk melakukan edit/tambah data, Anda harus login dengan akun apa pun.
+            </p>
+            <button 
+                onClick={() => setIsAuthModalOpen(true)}
+                className="bg-white text-black font-black px-8 py-3 rounded-xl uppercase text-xs tracking-widest hover:bg-gray-200 transition-colors shadow-xl"
+            >
+                Connect to Database
+            </button>
+            <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        </div>
+    );
+  }
 
   if (!stats) return (
     <div className="flex items-center justify-center h-64">
@@ -143,11 +214,12 @@ const AdminDashboard: React.FC = () => {
                 <span>System Console</span>
              </h3>
              <div className="bg-black/40 rounded-xl p-4 font-mono text-xs text-green-400">
-                <p>$ admin-service --key nova_anime_stats --status</p>
-                <p>Fetching database metrics...</p>
-                <p>Total Registered Users: {stats.traffic.views > 100 ? Math.floor(stats.traffic.views / 50) : 0}</p>
+                <p>$ admin-service --provider firebase --status</p>
+                <p>Fetching Firestore metrics...</p>
+                <p>Total Views: {stats.traffic.views}</p>
                 <p>Active Ad Scripts: {ads.filter(a => a.is_active).length}</p>
                 <p>Status: All systems check out fine.</p>
+                <p className="text-blue-400 mt-2">Authenticated as: {firebaseUser?.email || 'Anonymous'}</p>
              </div>
           </div>
         </div>
@@ -250,7 +322,7 @@ const AdminDashboard: React.FC = () => {
               </h3>
               <p className="text-xs text-gray-500 mb-6 italic">Inject third-party scripts into specific slots.</p>
               <div className="bg-[#272a31]/30 p-4 rounded-xl mb-6 text-[10px] font-mono text-gray-400">
-                Config Key: nova_anime_ads_config
+                Firestore Collection: ads
               </div>
               <div className="space-y-4">
                  <div className="space-y-2">

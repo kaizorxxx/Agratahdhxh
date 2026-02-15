@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient.ts';
+import { auth } from '../firebase.ts';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import AuthModal from './AuthModal.tsx';
-import { fetchMovies } from '../services/animeApi.ts';
-import { Anime } from '../types.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,198 +12,155 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [notifications, setNotifications] = useState<Anime[]>([]);
-  const [showNotif, setShowNotif] = useState(false);
-
-  const menuItems = [
-    { name: 'Home', icon: 'fa-house', path: '/' },
-    { name: 'Discovery', icon: 'fa-compass', path: '/discovery' },
-    { name: 'Community', icon: 'fa-users', path: '/community' },
-  ];
-
-  const libraryItems = [
-    { name: 'Recent', icon: 'fa-clock-rotate-left', path: '/recent' },
-    { name: 'My Collection', icon: 'fa-bookmark', path: '/collection' },
-  ];
+  const [user, setUser] = useState<User | null>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    const handleScroll = () => {
+      const scrollable = document.getElementById('scrollable-content');
+      if (scrollable) {
+        setScrolled(scrollable.scrollTop > 50);
+      }
+    };
 
-    // Ambil data movie untuk notifikasi
-    fetchMovies().then(data => {
-      setNotifications(data.slice(0, 6)); // Ambil 6 movie terbaru
-    });
+    const scrollContainer = document.getElementById('scrollable-content');
+    scrollContainer?.addEventListener('scroll', handleScroll);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      unsubscribe();
+      scrollContainer?.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-  };
-
-  const isActive = (path: string) => location.pathname === path;
+  const menuLinks = [
+    { name: 'Home', path: '/', icon: 'fa-house' },
+    { name: 'Discovery', path: '/discovery', icon: 'fa-compass' },
+    { name: 'Movies', path: '/discovery?type=movie', icon: 'fa-film' },
+    { name: 'Search', path: '/search', icon: 'fa-magnifying-glass' },
+    { name: 'Profile', path: '/profile', icon: 'fa-user' },
+  ];
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0f1115]">
-      {/* Sidebar */}
-      <aside className={`w-64 bg-[#16191f] flex-shrink-0 flex flex-col border-r border-[#272a31] transition-all duration-300 ${isSidebarOpen ? 'ml-0' : '-ml-64'}`}>
-        <div className="p-8">
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold tracking-tighter text-white">
-              Anime<span className="text-red-600">-X</span>
-            </span>
+    <div className="flex h-screen overflow-hidden bg-black text-white font-['Inter']">
+      
+      {/* Sidebar Overlay */}
+      <aside 
+        className={`fixed inset-y-0 left-0 w-80 bg-black/60 backdrop-blur-3xl border-r border-white/5 z-[70] transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] transform ${
+          isSidebarOpen ? 'translate-x-0 shadow-[20px_0_60px_rgba(0,0,0,0.8)]' : '-translate-x-full'
+        } lg:relative lg:translate-x-0 lg:w-28 xl:w-80`}
+      >
+        <div className="flex flex-col h-full p-8">
+          <Link to="/" onClick={() => setIsSidebarOpen(false)} className="flex items-center space-x-4 mb-16 px-2">
+            <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+              <span className="text-2xl font-black italic">G</span>
+            </div>
+            <span className="text-3xl font-black tracking-tighter italic xl:block hidden">GENZURO</span>
           </Link>
-        </div>
 
-        <nav className="flex-1 px-6 space-y-8 overflow-y-auto">
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Menu</p>
-            <ul className="space-y-2">
-              {menuItems.map((item) => (
-                <li key={item.path}>
-                  <Link
-                    to={item.path}
-                    className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${
-                      isActive(item.path) ? 'bg-red-600/10 text-red-500 border-l-2 border-red-600' : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    <i className={`fa-solid ${item.icon} w-5`}></i>
-                    <span className="text-sm font-medium">{item.name}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          <nav className="flex-1 space-y-3">
+            {menuLinks.map((link) => {
+              const isActive = location.pathname === link.path;
+              return (
+                <Link 
+                  key={link.name}
+                  to={link.path}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={`flex items-center p-5 rounded-[24px] transition-all duration-500 group relative overflow-hidden ${
+                    isActive 
+                    ? 'bg-red-600 text-white shadow-[0_10px_25px_rgba(220,38,38,0.3)]' 
+                    : 'text-gray-500 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <div className="w-6 flex justify-center z-10">
+                    <i className={`fa-solid ${link.icon} text-lg`}></i>
+                  </div>
+                  <span className={`ml-6 font-black text-xs uppercase tracking-[0.2em] z-10 xl:block hidden`}>
+                    {link.name}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="pt-8 border-t border-white/5">
+             {user ? (
+               <button 
+                onClick={() => { signOut(auth); setIsSidebarOpen(false); }}
+                className="flex items-center w-full p-5 rounded-[24px] text-gray-600 hover:text-red-500 hover:bg-red-500/5 transition-all group"
+               >
+                 <i className="fa-solid fa-right-from-bracket text-lg"></i>
+                 <span className="ml-6 font-black text-[10px] uppercase tracking-widest xl:block hidden">Logout</span>
+               </button>
+             ) : (
+               <button 
+                onClick={() => { setIsAuthModalOpen(true); setIsSidebarOpen(false); }}
+                className="flex items-center w-full p-5 rounded-[24px] bg-white/5 text-gray-400 hover:text-white transition-all shadow-lg group"
+               >
+                 <i className="fa-solid fa-user-plus text-lg"></i>
+                 <span className="ml-6 font-black text-[10px] uppercase tracking-widest xl:block hidden">Sign In</span>
+               </button>
+             )}
           </div>
-
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Library</p>
-            <ul className="space-y-2">
-              {libraryItems.map((item) => (
-                <li key={item.path}>
-                  <Link
-                    to={item.path}
-                    className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${
-                      isActive(item.path) ? 'bg-red-600/10 text-red-500 border-l-2 border-red-600' : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    <i className={`fa-solid ${item.icon} w-5`}></i>
-                    <span className="text-sm font-medium">{item.name}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </nav>
-
-        <div className="p-6 border-t border-[#272a31] space-y-2">
-          {user ? (
-            <button 
-              onClick={handleLogout}
-              className="flex w-full items-center space-x-3 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-            >
-              <i className="fa-solid fa-right-from-bracket w-5"></i>
-              <span className="text-sm font-medium">Log out</span>
-            </button>
-          ) : (
-            <button 
-              onClick={() => setIsAuthModalOpen(true)}
-              className="flex w-full items-center space-x-3 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-            >
-              <i className="fa-solid fa-right-to-bracket w-5"></i>
-              <span className="text-sm font-medium">Sign In</span>
-            </button>
-          )}
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Header */}
-        <header className="h-20 flex items-center justify-between px-8 bg-transparent z-10">
-          <div className="flex items-center space-x-6">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-gray-400 hover:text-white">
-              <i className="fa-solid fa-bars text-xl"></i>
-            </button>
-            <nav className="hidden md:flex space-x-6">
-              <Link to="/discovery" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Series</Link>
-              <Link to="/discovery" className="text-sm font-semibold text-gray-300 hover:text-white border-b-2 border-transparent hover:border-red-600 pb-1">Movies</Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center space-x-6">
-            {/* Notification Bell (Movies) */}
-            <div className="relative group">
-               <button onClick={() => setShowNotif(!showNotif)} className="relative p-2">
-                 <i className="fa-solid fa-bell text-gray-400 hover:text-white cursor-pointer transition-colors text-lg"></i>
-                 <span className="absolute top-1 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse border border-[#0f1115]"></span>
-               </button>
-               
-               {/* Dropdown Notification */}
-               {showNotif && (
-                 <div className="absolute right-0 mt-2 w-80 bg-[#16191f] border border-[#272a31] rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
-                    <div className="p-4 border-b border-[#272a31] flex justify-between items-center bg-gray-800/30">
-                       <h4 className="font-bold text-white text-sm">New Anime Movies</h4>
-                       <span className="text-[10px] bg-red-600 px-2 py-0.5 rounded text-white font-bold">NEW</span>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                       {notifications.map((movie, idx) => (
-                         <Link 
-                           key={idx} 
-                           to={`/anime/${movie.id}`} 
-                           onClick={() => setShowNotif(false)}
-                           className="flex items-start space-x-3 p-3 hover:bg-[#272a31] transition-colors border-b border-gray-800/50 last:border-0"
-                         >
-                            <img src={movie.poster} alt="" className="w-12 h-16 object-cover rounded-md bg-gray-800" />
-                            <div className="flex-1 min-w-0">
-                               <p className="text-xs font-bold text-white line-clamp-2 leading-relaxed">{movie.title}</p>
-                               <div className="flex items-center space-x-2 mt-1">
-                                  <span className="text-[10px] text-yellow-500 font-bold"><i className="fa-solid fa-star mr-1"></i>{movie.score}</span>
-                                  <span className="text-[10px] text-gray-500">Movie</span>
-                               </div>
-                            </div>
-                         </Link>
-                       ))}
-                       {notifications.length === 0 && (
-                         <div className="p-8 text-center text-xs text-gray-500">Loading notifications...</div>
-                       )}
-                    </div>
-                 </div>
-               )}
+      <main className="flex-1 flex flex-col relative overflow-hidden">
+        
+        {/* Universal Header */}
+        <header className={`fixed top-0 right-0 left-0 lg:left-28 xl:left-80 h-24 px-8 md:px-12 flex items-center justify-between z-[65] transition-all duration-500 ${scrolled ? 'bg-black/80 backdrop-blur-2xl border-b border-white/5 shadow-2xl' : 'bg-transparent'}`}>
+            <div className="flex items-center space-x-6">
+                <button 
+                  onClick={() => setIsSidebarOpen(true)} 
+                  className="lg:hidden w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white border border-white/10"
+                >
+                  <i className="fa-solid fa-bars-staggered text-xl"></i>
+                </button>
+                <Link to="/" className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-red-600 transition-all border border-white/5 shadow-xl group">
+                  <i className="fa-solid fa-house text-sm"></i>
+                </Link>
+                {scrolled && (
+                   <span className="text-sm font-black italic tracking-tight text-white/50 uppercase hidden md:block">GENZURO</span>
+                )}
             </div>
             
-            {user ? (
-              <Link to="/profile" className="flex items-center space-x-3 group">
-                <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden border-2 border-gray-600 group-hover:border-red-600 transition-all">
-                  <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
-                </div>
-              </Link>
-            ) : (
-              <button 
-                onClick={() => setIsAuthModalOpen(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg shadow-red-600/20"
-              >
-                Login
-              </button>
-            )}
-          </div>
+            <div className="flex items-center space-x-4">
+                <Link to="/search" className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/5 group">
+                  <i className="fa-solid fa-magnifying-glass text-sm group-hover:scale-125 transition-transform text-red-600"></i>
+                </Link>
+                
+                {user ? (
+                   <Link to="/profile" className="flex items-center space-x-4 bg-white/5 p-1.5 pr-4 md:pr-6 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
+                      <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.email}`} className="w-9 h-9 rounded-xl object-cover border border-white/10" alt="" />
+                      <div className="hidden xl:block">
+                        <p className="text-[10px] font-black text-white uppercase truncate w-24">{user.displayName || 'Account'}</p>
+                      </div>
+                   </Link>
+                ) : (
+                  <button onClick={() => setIsAuthModalOpen(true)} className="bg-red-600 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hidden md:block">Login</button>
+                )}
+            </div>
         </header>
 
-        {/* Content View */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar" id="scrollable-content">
-          {children}
+        <div className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth" id="scrollable-content">
+          <div className="pt-24 min-h-screen">
+             {children}
+          </div>
         </div>
 
-        {/* Auth Modal */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[68] lg:hidden" 
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </main>
     </div>

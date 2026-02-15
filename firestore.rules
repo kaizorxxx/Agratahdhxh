@@ -1,0 +1,38 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Community Comments
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // 2. Statistics & Traffic
+    match /stats/{statId} {
+      allow read, write: if true; 
+    }
+    
+    // 3. Banners and Ads
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /ads/{adId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // 4. User Specific Data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow user to access any subcollection within their own user document
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
