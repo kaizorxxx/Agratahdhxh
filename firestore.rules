@@ -4,6 +4,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // 1. Community Comments
+    // Allow anyone to read comments (required for the chat to load for guests)
+    // Allow authenticated users to create comments
+    // Allow owners to update/delete their own comments
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null;

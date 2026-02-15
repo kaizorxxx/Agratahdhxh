@@ -19,10 +19,6 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
 
-  const genres = [
-    'Action', 'Adventure', 'Biography', 'Crime', 'Comedy', 'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror'
-  ];
-
   const lastElementRef = useCallback((node: HTMLDivElement | null) => {
     if (isLoading || isFetchingMore) return;
     if (observer.current) observer.current.disconnect();
@@ -162,25 +158,7 @@ const HomePage: React.FC = () => {
         </section>
       )}
 
-      {/* Categories / Genre Filter Bar */}
-      <div className="relative z-20 -mt-10 px-8">
-        <div className="flex items-center space-x-3 overflow-x-auto hide-scrollbar pb-10">
-           {genres.map((genre) => (
-             <button 
-                key={genre}
-                className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
-                  genre === 'Crime' || genre === 'Action' || genre === 'Drama' 
-                  ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20' 
-                  : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
-             >
-                {genre}
-             </button>
-           ))}
-        </div>
-      </div>
-
-      <div className="px-8 space-y-16">
+      <div className="px-8 space-y-16 mt-10">
         {/* Continue Watching */}
         {history.length > 0 && (
           <section>

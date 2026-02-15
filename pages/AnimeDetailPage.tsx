@@ -57,10 +57,13 @@ const AnimeDetailPage: React.FC = () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const docRef = doc(db, "users", user.uid, "bookmarks", cleanId);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) setIsBookmarked(true);
-          else setIsBookmarked(false);
+          // Ensure cleanId is valid before accessing Firestore path
+          if(cleanId) {
+             const docRef = doc(db, "users", user.uid, "bookmarks", cleanId);
+             const docSnap = await getDoc(docRef);
+             if (docSnap.exists()) setIsBookmarked(true);
+             else setIsBookmarked(false);
+          }
         } catch (e) {
           console.warn("Bookmark check permission error (likely during sign-out):", e);
         }
@@ -70,27 +73,40 @@ const AnimeDetailPage: React.FC = () => {
     });
 
     // Real-time Chat listener
-    const commentsRef = collection(db, "comments");
-    const commentsQuery = query(
-      commentsRef,
-      where("animeId", "==", cleanId),
-      orderBy("timestamp", "desc")
-    );
-    
-    const unsubscribeComments = onSnapshot(
-      commentsQuery, 
-      (snapshot) => {
-        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment));
-        setComments(list);
-      }, 
-      (error) => {
-        console.error(`[Firestore Chat Error]: ${error.code} - ${error.message}`);
-      }
-    );
+    if (cleanId) {
+        const commentsRef = collection(db, "comments");
+        // Note: Creating a composite index in Firestore is required for this query
+        // URL: https://console.firebase.google.com/project/_/firestore/indexes
+        const commentsQuery = query(
+          commentsRef,
+          where("animeId", "==", cleanId),
+          orderBy("timestamp", "desc")
+        );
+        
+        const unsubscribeComments = onSnapshot(
+          commentsQuery, 
+          (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment));
+            setComments(list);
+          }, 
+          (error) => {
+            // Ignore permission-denied errors initially to prevent console spam if rules aren't propogated
+            if (error.code !== 'permission-denied') {
+               console.error(`[Firestore Chat Error]: ${error.code} - ${error.message}`);
+            } else {
+               console.warn("Chat access denied. Please check Firestore Rules.");
+            }
+          }
+        );
+
+        return () => {
+          unsubscribeAuth();
+          unsubscribeComments();
+        };
+    }
 
     return () => {
       unsubscribeAuth();
-      unsubscribeComments();
     };
   }, [cleanId]);
 
