@@ -2,6 +2,7 @@
 import React, { Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout.tsx';
+import AdultVerificationModal from './components/AdultVerificationModal.tsx';
 
 // --- LAZY LOAD COMPONENTS ---
 // Code splitting: Hanya load komponen saat dibutuhkan user
@@ -70,6 +71,7 @@ const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
+        <AdultVerificationModal />
       </Layout>
     </Router>
   );
