@@ -29,20 +29,31 @@ export const getAnimeSlug = (slug: string): string => {
 
 /**
  * Robust Fetcher with Proxy Support
+ * OPTIMIZED: Prioritizes Proxy over Direct fetch to avoid CORS timeouts on web browsers.
  */
 const fetcher = async (url: string): Promise<any> => {
-  console.log(`[API] Fetching: ${url}`);
+  // console.log(`[API] Fetching: ${url}`);
   
   const proxies = [
-    (u: string) => u, // Direct
+    // 1. Primary Proxy (Fastest & Most reliable for CORS)
     (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    (u: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`
+    // 2. Secondary Proxy (Fallback, wraps in JSON)
+    (u: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    // 3. Direct (Usually fails on browser due to CORS, keep as last resort)
+    (u: string) => u
   ];
 
   for (const proxy of proxies) {
     try {
       const target = proxy(url);
-      const res = await fetch(target);
+      
+      // Add a short timeout to fail faster if a proxy hangs
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+      const res = await fetch(target, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         if (target.includes('allorigins')) {
           const json = await res.json();
@@ -51,7 +62,8 @@ const fetcher = async (url: string): Promise<any> => {
         return await res.json();
       }
     } catch (e) {
-      console.warn(`Proxy fail: ${proxy(url)}`, e);
+      // console.warn(`Proxy fail: ${proxy(url)}`);
+      // Continue to next proxy
     }
   }
   throw new Error(`Failed to fetch ${url}`);
