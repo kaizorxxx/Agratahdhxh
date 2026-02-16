@@ -185,6 +185,17 @@ const AnimeDetailPage: React.FC = () => {
     }
   };
 
+  // Helper untuk format nomor episode
+  const formatEpisodeNumber = (num: string | number, idx: number) => {
+    // Jika API memberikan angka (string/number), gunakan itu dan format 2 digit
+    const parsed = parseInt(String(num));
+    if (!isNaN(parsed)) {
+      return parsed.toString().padStart(2, '0');
+    }
+    // Jika tidak ada nomor valid dari API, gunakan Index + 1
+    return (idx + 1).toString().padStart(2, '0');
+  };
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-[80vh] space-y-6">
        <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
@@ -271,7 +282,7 @@ const AnimeDetailPage: React.FC = () => {
                       >
                          <div className="flex items-center justify-between mb-4">
                             <span className="text-5xl font-black italic text-white group-hover:text-red-600 transition-colors">
-                                {ep.number || (idx + 1).toString().padStart(2, '0')}
+                                {formatEpisodeNumber(ep.number, idx)}
                             </span>
                             <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-white group-hover:bg-red-600 transition-all">
                                 <i className="fa-solid fa-play text-xs"></i>

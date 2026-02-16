@@ -146,7 +146,7 @@ export const fetchAnimeDetail = async (slug: string): Promise<Anime | null> => {
         number: ep.episode,
         anime_id: cleanSlug,
         date: ep.date
-      }));
+      })).reverse(); // REVERSE: Agar episode 1 muncul paling awal (Ascending)
 
       return {
         id: cleanSlug,
