@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { fetchAnimeDetail, fetchEpisodeDetail } from '../services/animeApi.ts';
 import { saveProgress } from '../services/historyService.ts';
-import { Anime } from '../types.ts';
+import { fetchAds } from '../services/adService.ts';
+import { Anime, Ad } from '../types.ts';
 
 declare global {
   interface Window {
@@ -21,6 +22,13 @@ const WatchPage: React.FC = () => {
   const [episode, setEpisode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeServer, setActiveServer] = useState(0);
+
+  // Ad State
+  const [interstitialAd, setInterstitialAd] = useState<Ad | null>(null);
+  const [stickyAd, setStickyAd] = useState<Ad | null>(null);
+  const [showInterstitial, setShowInterstitial] = useState(false);
+  const [interstitialShown, setInterstitialShown] = useState(false);
+  const [adTimer, setAdTimer] = useState(5);
 
   // Player State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -46,13 +54,21 @@ const WatchPage: React.FC = () => {
       if (!cleanAnimeId || !cleanEpId) return;
       setLoading(true);
       try {
-        const [aData, eData] = await Promise.all([
+        const [aData, eData, adsData] = await Promise.all([
           fetchAnimeDetail(cleanAnimeId),
-          fetchEpisodeDetail(cleanEpId)
+          fetchEpisodeDetail(cleanEpId),
+          fetchAds()
         ]);
         setAnime(aData);
         setEpisode(eData);
         setActiveServer(0);
+
+        // Process Ads
+        const interstitial = adsData.find(a => a.placement === 'interstitial');
+        const sticky = adsData.find(a => a.placement === 'sticky-bottom');
+        setInterstitialAd(interstitial || null);
+        setStickyAd(sticky || null);
+
       } catch (err) {
         console.error("Failed to load watch data", err);
       } finally {
@@ -115,6 +131,13 @@ const WatchPage: React.FC = () => {
   // --- Player Logic ---
 
   const handlePlayPause = () => {
+    // Interstitial Logic
+    if (interstitialAd && !interstitialShown && !showInterstitial) {
+        setShowInterstitial(true);
+        setAdTimer(5); // Reset timer
+        return;
+    }
+
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
       videoRef.current.play();
@@ -123,6 +146,26 @@ const WatchPage: React.FC = () => {
       videoRef.current.pause();
       setIsPlaying(false);
     }
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (showInterstitial && adTimer > 0) {
+        interval = setInterval(() => {
+            setAdTimer(prev => prev - 1);
+        }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showInterstitial, adTimer]);
+
+  const closeInterstitial = () => {
+      setShowInterstitial(false);
+      setInterstitialShown(true);
+      // Auto play after ad
+      if (videoRef.current) {
+          videoRef.current.play();
+          setIsPlaying(true);
+      }
   };
 
   const handleTimeUpdate = () => {
@@ -317,6 +360,23 @@ const WatchPage: React.FC = () => {
         onMouseMove={handleMouseMove}
         onMouseLeave={() => isPlaying && setShowControls(false)}
       >
+         {/* Interstitial Ad Overlay */}
+         {showInterstitial && interstitialAd && (
+             <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center p-8">
+                 <div className="text-white mb-4 font-bold uppercase tracking-widest text-sm">Advertisement</div>
+                 <div className="bg-white/5 p-4 rounded-xl border border-white/10 max-w-2xl w-full flex items-center justify-center min-h-[300px]">
+                     <div dangerouslySetInnerHTML={{ __html: interstitialAd.script }} className="text-white" />
+                 </div>
+                 <button 
+                    onClick={closeInterstitial}
+                    disabled={adTimer > 0}
+                    className={`mt-8 px-8 py-3 rounded-full font-black uppercase tracking-widest transition-all ${adTimer > 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-white text-black hover:bg-gray-200'}`}
+                 >
+                     {adTimer > 0 ? `Skip in ${adTimer}s` : 'Skip Advertisement'}
+                 </button>
+             </div>
+         )}
+
          {isEmbed ? (
            <iframe 
              src={currentServer?.url} 
@@ -501,6 +561,22 @@ const WatchPage: React.FC = () => {
             </div>
          </div>
       </div>
+
+      {/* Sticky Bottom Ad */}
+      {stickyAd && (
+          <div className="fixed bottom-0 left-0 right-0 z-[100] flex justify-center pointer-events-none pb-4">
+              <div className="bg-[#16191f] p-4 rounded-xl border border-[#272a31] pointer-events-auto relative shadow-2xl max-w-4xl mx-4">
+                  <button 
+                    onClick={() => setStickyAd(null)}
+                    className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-lg hover:bg-red-700 transition-colors"
+                  >
+                      <i className="fa-solid fa-xmark"></i>
+                  </button>
+                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2 text-center">Advertisement</div>
+                  <div dangerouslySetInnerHTML={{ __html: stickyAd.script }} className="flex justify-center" />
+              </div>
+          </div>
+      )}
     </div>
   );
 };

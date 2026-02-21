@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchAnimeDetail, getAnimeSlug } from '../services/animeApi.ts';
+import { fetchAnimeDetail, getAnimeSlug, fetchRelatedAnime } from '../services/animeApi.ts';
 import { Anime } from '../types.ts';
+import AnimeCard from '../components/AnimeCard.tsx';
 import { auth, db } from '../firebase.ts';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, deleteDoc, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -27,6 +28,7 @@ const AnimeDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [relatedAnime, setRelatedAnime] = useState<Anime[]>([]);
   
   const [liveViews, setLiveViews] = useState(0);
   const [watchingNow, setWatchingNow] = useState(0);
@@ -48,6 +50,12 @@ const AnimeDetailPage: React.FC = () => {
       setLoading(false);
       setLiveViews(Math.floor(Math.random() * 120000) + 45000);
       setWatchingNow(Math.floor(Math.random() * 800) + 200);
+      
+      if (data && data.genres && data.genres.length > 0) {
+        fetchRelatedAnime(data.genres).then(related => {
+            setRelatedAnime(related.filter(r => r.id !== data.id).slice(0, 5));
+        });
+      }
     }).catch(err => {
       console.error("Failed to fetch anime detail:", err);
       setLoading(false);
@@ -163,6 +171,12 @@ const AnimeDetailPage: React.FC = () => {
         alert("Silakan login untuk menyimpan.");
         return;
       }
+      
+      if (!cleanId) {
+        console.error("Invalid anime ID");
+        return;
+      }
+
       setSaving(true);
       const docRef = doc(db, "users", user.uid, "bookmarks", cleanId);
 
@@ -256,9 +270,21 @@ const AnimeDetailPage: React.FC = () => {
                         <i className="fa-solid fa-play"></i>
                         <span>Pilih Episode</span>
                     </button>
-                    <button onClick={handleToggleBookmark} className="bg-white/5 hover:bg-white/10 text-white border border-white/20 px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all">
-                        <i className={`fa-solid ${isBookmarked ? 'fa-check' : 'fa-plus'}`}></i>
-                        <span className="ml-3">{isBookmarked ? 'In List' : 'Playlist'}</span>
+                    <button 
+                        onClick={handleToggleBookmark} 
+                        disabled={saving}
+                        className={`border px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all flex items-center space-x-3 ${
+                            isBookmarked 
+                                ? 'bg-white text-black border-white hover:bg-gray-200' 
+                                : 'bg-white/5 text-white border-white/20 hover:bg-white/10'
+                        }`}
+                    >
+                        {saving ? (
+                            <i className="fa-solid fa-circle-notch animate-spin"></i>
+                        ) : (
+                            <i className={`fa-solid ${isBookmarked ? 'fa-bookmark' : 'fa-bookmark'}`}></i>
+                        )}
+                        <span>{isBookmarked ? 'Remove from Bookmark' : 'Add to Bookmark'}</span>
                     </button>
                 </div>
             </div>
@@ -295,6 +321,21 @@ const AnimeDetailPage: React.FC = () => {
                   ))}
               </div>
           </section>
+
+          {/* Related Anime Section */}
+          {relatedAnime.length > 0 && (
+            <section className="space-y-12 pb-12 border-b border-white/5">
+                <div className="border-b border-white/5 pb-8">
+                    <h2 className="text-4xl font-black uppercase italic tracking-tighter">You Might Also Like</h2>
+                    <p className="text-gray-500 text-xs font-black uppercase tracking-[0.5em] mt-4">Based on {anime.genres?.[0] || 'Genre'}</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    {relatedAnime.map(item => (
+                        <AnimeCard key={item.id} anime={item} />
+                    ))}
+                </div>
+            </section>
+          )}
 
           {/* Chat System */}
           <section className="space-y-12">

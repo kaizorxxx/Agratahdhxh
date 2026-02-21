@@ -339,6 +339,20 @@ export const fetchEpisodeDetail = async (slug: string) => {
   }
 };
 
+export const fetchRelatedAnime = async (genres?: string[]): Promise<Anime[]> => {
+  if (!genres || genres.length === 0) return [];
+  // Use the first genre for search to get relevant results
+  const query = genres[0];
+  try {
+      // Reuse searchAnime but maybe limit results or shuffle if possible?
+      // For now, simple search is enough.
+      const results = await searchAnime(query);
+      return results.slice(0, 10); // Limit to 10 items
+  } catch (e) {
+      return [];
+  }
+};
+
 export const fetchMovies = async (): Promise<Anime[]> => fetchLatest(1);
 export const fetchOngoing = fetchLatest;
 export const fetchCompleted = fetchRecommended;
