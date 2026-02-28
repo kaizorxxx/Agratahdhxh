@@ -6,7 +6,8 @@ import { Anime } from '../types.ts';
 import AnimeCard from '../components/AnimeCard.tsx';
 import { auth, db } from '../firebase.ts';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, deleteDoc, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { addToWatchlist, removeFromWatchlist, isInWatchlist } from '../services/watchlistService.ts';
 
 interface Comment {
   id: string;
@@ -26,7 +27,7 @@ const AnimeDetailPage: React.FC = () => {
   
   const [anime, setAnime] = useState<Anime | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [inWatchlist, setInWatchlist] = useState(false);
   const [saving, setSaving] = useState(false);
   const [relatedAnime, setRelatedAnime] = useState<Anime[]>([]);
   
@@ -61,22 +62,17 @@ const AnimeDetailPage: React.FC = () => {
       setLoading(false);
     });
 
-    // Listen for Auth changes to check bookmark status correctly
+    // Listen for Auth changes to check watchlist status correctly
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && cleanId) {
         try {
-          // Ensure cleanId is valid before accessing Firestore path
-          if(cleanId) {
-             const docRef = doc(db, "users", user.uid, "bookmarks", cleanId);
-             const docSnap = await getDoc(docRef);
-             if (docSnap.exists()) setIsBookmarked(true);
-             else setIsBookmarked(false);
-          }
+          const status = await isInWatchlist(cleanId);
+          setInWatchlist(status);
         } catch (e) {
-          console.warn("Bookmark check permission error (likely during sign-out):", e);
+          console.warn("Watchlist check error:", e);
         }
       } else {
-        setIsBookmarked(false);
+        setInWatchlist(false);
       }
     });
 
@@ -164,7 +160,7 @@ const AnimeDetailPage: React.FC = () => {
     episodesRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleToggleBookmark = async () => {
+  const handleToggleWatchlist = async () => {
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -172,25 +168,19 @@ const AnimeDetailPage: React.FC = () => {
         return;
       }
       
-      if (!cleanId) {
-        console.error("Invalid anime ID");
+      if (!cleanId || !anime) {
+        console.error("Invalid anime ID or data missing");
         return;
       }
 
       setSaving(true);
-      const docRef = doc(db, "users", user.uid, "bookmarks", cleanId);
 
-      if (isBookmarked) {
-        await deleteDoc(docRef);
-        setIsBookmarked(false);
-      } else if (anime) {
-        await setDoc(docRef, {
-          anime_id: anime.id,
-          anime_title: anime.title,
-          anime_poster: anime.poster,
-          timestamp: Date.now()
-        });
-        setIsBookmarked(true);
+      if (inWatchlist) {
+        await removeFromWatchlist(cleanId);
+        setInWatchlist(false);
+      } else {
+        await addToWatchlist(anime);
+        setInWatchlist(true);
       }
     } catch (e: any) {
         console.error(e);
@@ -262,19 +252,19 @@ const AnimeDetailPage: React.FC = () => {
                     {anime.description || "In a world where destinies collide, follow the journey of legend in this GENZURO original series."}
                 </p>
 
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-4">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4 pt-4">
                     <button 
                         onClick={scrollToEpisodes}
-                        className="bg-red-600 hover:bg-red-700 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all flex items-center space-x-3 shadow-2xl shadow-red-600/30"
+                        className="bg-red-600 hover:bg-red-700 text-white px-6 md:px-10 py-3 md:py-5 rounded-xl md:rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-[0.2em] transition-all flex items-center space-x-3 shadow-2xl shadow-red-600/30"
                     >
                         <i className="fa-solid fa-play"></i>
                         <span>Pilih Episode</span>
                     </button>
                     <button 
-                        onClick={handleToggleBookmark} 
+                        onClick={handleToggleWatchlist} 
                         disabled={saving}
-                        className={`border px-10 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all flex items-center space-x-3 ${
-                            isBookmarked 
+                        className={`border px-6 md:px-10 py-3 md:py-5 rounded-xl md:rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-[0.2em] transition-all flex items-center space-x-3 ${
+                            inWatchlist 
                                 ? 'bg-white text-black border-white hover:bg-gray-200' 
                                 : 'bg-white/5 text-white border-white/20 hover:bg-white/10'
                         }`}
@@ -282,9 +272,9 @@ const AnimeDetailPage: React.FC = () => {
                         {saving ? (
                             <i className="fa-solid fa-circle-notch animate-spin"></i>
                         ) : (
-                            <i className={`fa-solid ${isBookmarked ? 'fa-bookmark' : 'fa-bookmark'}`}></i>
+                            <i className={`fa-solid ${inWatchlist ? 'fa-check' : 'fa-plus'}`}></i>
                         )}
-                        <span>{isBookmarked ? 'Remove from Bookmark' : 'Add to Bookmark'}</span>
+                        <span>{inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}</span>
                     </button>
                 </div>
             </div>
@@ -292,19 +282,19 @@ const AnimeDetailPage: React.FC = () => {
       </section>
 
       {/* Episode Grid */}
-      <div className="px-8 md:px-20 py-24 space-y-32 bg-black">
-          <section ref={episodesRef} className="space-y-12 scroll-mt-32">
-              <div className="border-b border-white/5 pb-10">
-                  <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter italic">Episode Guide</h2>
-                  <p className="text-gray-500 text-xs font-black uppercase tracking-[0.5em] mt-4">Kualitas Ultra HD Server Premium</p>
+      <div className="px-4 md:px-20 py-12 md:py-24 space-y-16 md:space-y-32 bg-black">
+          <section ref={episodesRef} className="space-y-8 md:space-y-12 scroll-mt-32">
+              <div className="border-b border-white/5 pb-6 md:pb-10">
+                  <h2 className="text-3xl md:text-6xl font-black uppercase tracking-tighter italic">Episode Guide</h2>
+                  <p className="text-gray-500 text-[10px] md:text-xs font-black uppercase tracking-[0.5em] mt-2 md:mt-4">Kualitas Ultra HD Server Premium</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                   {anime.episodes?.map((ep, idx) => (
                       <Link 
                         key={ep.id}
                         to={`/watch/${encodeURIComponent(cleanId)}/${encodeURIComponent(ep.id)}`}
-                        className="group relative flex flex-col p-8 bg-[#0a0a0a] border border-white/5 rounded-[40px] hover:border-red-600 hover:bg-red-600/5 transition-all duration-500 shadow-xl"
+                        className="group relative flex flex-col p-6 md:p-8 bg-[#0a0a0a] border border-white/5 rounded-[32px] md:rounded-[40px] hover:border-red-600 hover:bg-red-600/5 transition-all duration-500 shadow-xl"
                       >
                          <div className="flex items-center justify-between mb-4">
                             <span className="text-5xl font-black italic text-white group-hover:text-red-600 transition-colors">

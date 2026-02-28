@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchLatest, fetchRecommended } from '../services/animeApi.ts';
 import { getHistory } from '../services/historyService.ts';
@@ -7,51 +7,35 @@ import { Anime, HistoryItem } from '../types.ts';
 import AnimeCard from '../components/AnimeCard.tsx';
 
 const HomePage: React.FC = () => {
-  const [popular, setPopular] = useState<Anime[]>([]);
+  const [trending, setTrending] = useState<Anime[]>([]);
   const [recent, setRecent] = useState<Anime[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-
   const navigate = useNavigate();
-  const observer = useRef<IntersectionObserver | null>(null);
-
-  const lastElementRef = useCallback((node: HTMLDivElement | null) => {
-    if (isLoading || isFetchingMore) return;
-    if (observer.current) observer.current.disconnect();
-    
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prevPage => prevPage + 1);
-      }
-    });
-    
-    if (node) observer.current.observe(node);
-  }, [isLoading, isFetchingMore, hasMore]);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadInitialData = async () => {
-      if (recent.length === 0) setIsLoading(true);
+      setIsLoading(true);
       
       try {
-        const [popData, recData] = await Promise.all([
+        // Fetch data in parallel
+        const [trendingData, recentData] = await Promise.all([
           fetchRecommended(),
           fetchLatest(1)
         ]);
         
         if (isMounted) {
-            setPopular(Array.isArray(popData) ? popData : []);
-            setRecent(Array.isArray(recData) ? recData : []);
+            // Limit items to improve performance
+            setTrending(Array.isArray(trendingData) ? trendingData.slice(0, 10) : []);
+            setRecent(Array.isArray(recentData) ? recentData.slice(0, 12) : []);
             setHistory(getHistory());
         }
       } catch (e) {
         if (isMounted) {
-            setPopular([]);
+            setTrending([]);
             setRecent([]);
         }
       } finally {
@@ -63,32 +47,6 @@ const HomePage: React.FC = () => {
     return () => { isMounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (page <= 1) return;
-
-    const loadMore = async () => {
-      setIsFetchingMore(true);
-      try {
-        const moreData = await fetchLatest(page);
-        if (moreData && moreData.length > 0) {
-          setRecent(prev => {
-            const existingIds = new Set(prev.map(a => a.id));
-            const uniqueNew = moreData.filter(a => !existingIds.has(a.id));
-            return [...prev, ...uniqueNew];
-          });
-        } else {
-          setHasMore(false);
-        }
-      } catch (e) {
-        console.error("Failed to load more", e);
-      } finally {
-        setIsFetchingMore(false);
-      }
-    };
-
-    loadMore();
-  }, [page]);
-
   if (isLoading && recent.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[90vh]">
@@ -97,14 +55,15 @@ const HomePage: React.FC = () => {
     );
   }
 
-  const heroAnime = popular[0] || recent[0];
+  // Use the first trending item as Hero, or fallback to recent
+  const heroAnime = trending[0] || recent[0];
 
   return (
     <div className="pb-20 animate-fadeIn bg-black min-h-screen">
       
       {/* OTARIPLAY STYLE HERO SECTION */}
       {heroAnime && (
-        <section className="relative h-[85vh] w-full overflow-hidden">
+        <section className="relative h-[60vh] md:h-[85vh] w-full overflow-hidden">
           {/* Background Image */}
           <div className="absolute inset-0">
             <img 
@@ -118,7 +77,7 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* Hero Content - Left Aligned */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-8 md:left-16 max-w-2xl z-10 space-y-6">
+          <div className="absolute top-1/2 -translate-y-1/2 left-4 md:left-16 max-w-2xl z-10 space-y-4 md:space-y-6 pr-4">
             
             {/* Badge & Rating Row */}
             <div className="flex items-center gap-4">
@@ -131,36 +90,36 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* Huge Title */}
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tight line-clamp-3">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tight line-clamp-3">
               {heroAnime.title}
             </h1>
 
             {/* Description */}
-            <p className="text-gray-300 text-sm font-medium leading-relaxed max-w-xl line-clamp-3 md:line-clamp-4">
+            <p className="text-gray-300 text-xs sm:text-sm font-medium leading-relaxed max-w-xl line-clamp-3 md:line-clamp-4 hidden sm:block">
               {heroAnime.description || "Watch the latest episodes in high definition exclusively on GENZURO. Experience premium streaming with no interruptions."}
             </p>
 
             {/* Buttons */}
-            <div className="flex items-center gap-4 pt-4">
+            <div className="flex items-center gap-3 md:gap-4 pt-2 md:pt-4">
               <Link 
                 to={`/anime/${encodeURIComponent(heroAnime.id)}`} 
-                className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-xl shadow-red-600/30"
+                className="bg-red-600 hover:bg-red-700 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-lg font-bold text-xs md:text-sm transition-all flex items-center gap-2 shadow-xl shadow-red-600/30"
               >
                 <i className="fa-solid fa-play"></i>
                 Watch Now
               </Link>
               <Link
                 to={`/anime/${encodeURIComponent(heroAnime.id)}`} 
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/10 px-8 py-3 rounded-lg font-bold text-sm transition-all"
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/10 px-6 md:px-8 py-2.5 md:py-3 rounded-lg font-bold text-xs md:text-sm transition-all"
               >
-                View Details
+                Details
               </Link>
             </div>
           </div>
         </section>
       )}
 
-      <div className="px-6 md:px-12 space-y-16 -mt-10 relative z-20">
+      <div className="px-4 md:px-12 space-y-12 md:space-y-16 -mt-10 relative z-20">
         
         {/* Keep Watching (History) */}
         {history.length > 0 && (
@@ -188,11 +147,32 @@ const HomePage: React.FC = () => {
           </section>
         )}
 
-        {/* Latest Updates Grid */}
+        {/* TRENDING Section */}
         <section>
           <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
             <h2 className="text-xl font-black text-white uppercase tracking-tighter">
-              Latest <span className="text-red-600">Update</span>
+              Trending <span className="text-red-600">Now</span>
+            </h2>
+            <Link to="/discovery" className="text-[10px] font-bold text-gray-400 hover:text-white uppercase tracking-widest">
+                View All <i className="fa-solid fa-arrow-right ml-1"></i>
+            </Link>
+          </div>
+          
+          {/* Horizontal Scroll for Trending to save vertical space */}
+          <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x">
+            {trending.map((anime, idx) => (
+              <div key={`${anime.id}-${idx}`} className="min-w-[160px] md:min-w-[200px] snap-start">
+                 <AnimeCard anime={anime} />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* LAST UPDATE Section */}
+        <section>
+          <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter">
+              Last <span className="text-red-600">Update</span>
             </h2>
             <Link to="/discovery" className="text-[10px] font-bold text-gray-400 hover:text-white uppercase tracking-widest">
                 View All <i className="fa-solid fa-arrow-right ml-1"></i>
@@ -203,12 +183,6 @@ const HomePage: React.FC = () => {
             {recent.map((anime, idx) => (
               <AnimeCard key={`${anime.id}-${idx}`} anime={anime} />
             ))}
-          </div>
-
-          <div ref={lastElementRef} className="h-20 flex items-center justify-center mt-12">
-            {isFetchingMore ? (
-               <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-            ) : null}
           </div>
         </section>
       </div>

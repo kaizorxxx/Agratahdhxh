@@ -320,13 +320,13 @@ const WatchPage: React.FC = () => {
   return (
     <div className="px-4 md:px-8 pb-12 space-y-8 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4">
-         <div className="flex items-center space-x-4">
-            <Link to={`/anime/${encodeURIComponent(cleanAnimeId)}`} className="w-10 h-10 bg-[#16191f] border border-[#272a31] rounded-xl flex items-center justify-center text-gray-400 hover:text-white transition-all hover:bg-red-600 hover:border-red-600">
-               <i className="fa-solid fa-arrow-left"></i>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-4">
+         <div className="flex items-center space-x-3 md:space-x-4">
+            <Link to={`/anime/${encodeURIComponent(cleanAnimeId)}`} className="w-8 h-8 md:w-10 md:h-10 bg-[#16191f] border border-[#272a31] rounded-xl flex items-center justify-center text-gray-400 hover:text-white transition-all hover:bg-red-600 hover:border-red-600 shrink-0">
+               <i className="fa-solid fa-arrow-left text-xs md:text-sm"></i>
             </Link>
             <div className="flex-1 min-w-0">
-               <h1 className="text-lg md:text-xl font-black text-white line-clamp-1 uppercase italic tracking-tight">{anime?.title}</h1>
+               <h1 className="text-base md:text-xl font-black text-white line-clamp-1 uppercase italic tracking-tight">{anime?.title}</h1>
                <div className="flex items-center gap-2">
                  <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white font-bold uppercase tracking-wider">
                     {episode?.title?.replace('Episode', 'EP')}
@@ -345,7 +345,7 @@ const WatchPage: React.FC = () => {
               <button 
                 key={i} 
                 onClick={() => setActiveServer(i)} 
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${activeServer === i ? 'bg-red-600 border-red-600 text-white' : 'bg-[#16191f] border-[#272a31] text-gray-400 hover:text-white'}`}
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase border transition-all ${activeServer === i ? 'bg-red-600 border-red-600 text-white' : 'bg-[#16191f] border-[#272a31] text-gray-400 hover:text-white'}`}
               >
                 {s.serverName || `Server ${i+1}`}
               </button>
@@ -356,7 +356,7 @@ const WatchPage: React.FC = () => {
       {/* Video Player Container */}
       <div 
         ref={playerContainerRef}
-        className="relative w-full aspect-video bg-black rounded-[24px] md:rounded-[40px] overflow-hidden border border-[#272a31] shadow-2xl group select-none"
+        className="relative w-full aspect-video bg-black rounded-[16px] md:rounded-[40px] overflow-hidden border border-[#272a31] shadow-2xl group select-none"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => isPlaying && setShowControls(false)}
       >
@@ -438,15 +438,15 @@ const WatchPage: React.FC = () => {
              </div>
 
              {/* Custom Controls Bar */}
-             <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent px-6 pb-6 pt-20 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+             <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent px-4 md:px-6 pb-4 md:pb-6 pt-12 md:pt-20 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
                 
                 {/* Progress Bar */}
-                <div className="group/progress relative h-1.5 bg-white/20 rounded-full cursor-pointer mb-4">
+                <div className="group/progress relative h-1 md:h-1.5 bg-white/20 rounded-full cursor-pointer mb-3 md:mb-4">
                    <div 
                      className="absolute top-0 left-0 h-full bg-red-600 rounded-full relative" 
                      style={{ width: `${progress}%` }}
                    >
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full scale-0 group-hover/progress:scale-100 transition-transform shadow-lg"></div>
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 md:w-3 md:h-3 bg-white rounded-full scale-0 group-hover/progress:scale-100 transition-transform shadow-lg"></div>
                    </div>
                    <input 
                      type="range" 
@@ -460,21 +460,21 @@ const WatchPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                   <div className="flex items-center space-x-6">
+                   <div className="flex items-center space-x-4 md:space-x-6">
                       {/* Play/Pause */}
                       <button onClick={handlePlayPause} className="text-white hover:text-red-500 transition-colors">
-                         <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-xl w-6`}></i>
+                         <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-lg md:text-xl w-5 md:w-6`}></i>
                       </button>
 
                       {/* Next Episode (Quick) */}
                       {nextEp && (
                          <button onClick={handleNextEpisode} className="text-gray-400 hover:text-white transition-colors" title="Next Episode">
-                            <i className="fa-solid fa-forward-step text-lg"></i>
+                            <i className="fa-solid fa-forward-step text-base md:text-lg"></i>
                          </button>
                       )}
 
-                      {/* Volume */}
-                      <div className="flex items-center space-x-3 group/vol">
+                      {/* Volume (Hidden on Mobile) */}
+                      <div className="hidden md:flex items-center space-x-3 group/vol">
                          <button onClick={toggleMute} className="text-white hover:text-gray-300 w-6">
                             <i className={`fa-solid ${isMuted || volume === 0 ? 'fa-volume-xmark' : volume < 0.5 ? 'fa-volume-low' : 'fa-volume-high'}`}></i>
                          </button>
@@ -492,17 +492,17 @@ const WatchPage: React.FC = () => {
                       </div>
 
                       {/* Time */}
-                      <div className="text-xs font-mono font-bold text-gray-400">
+                      <div className="text-[10px] md:text-xs font-mono font-bold text-gray-400">
                          <span className="text-white">{formatTime(currentTime)}</span> / {formatTime(duration)}
                       </div>
                    </div>
 
-                   <div className="flex items-center space-x-6">
+                   <div className="flex items-center space-x-4 md:space-x-6">
                       {/* Speed Selector */}
                       <div className="relative">
                          <button 
                             onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                            className="text-xs font-black uppercase text-white hover:text-red-500 transition-colors w-10"
+                            className="text-[10px] md:text-xs font-black uppercase text-white hover:text-red-500 transition-colors w-8 md:w-10"
                          >
                             {playbackSpeed}x
                          </button>
@@ -523,7 +523,7 @@ const WatchPage: React.FC = () => {
 
                       {/* Fullscreen */}
                       <button onClick={toggleFullscreen} className="text-white hover:text-red-500 transition-colors">
-                         <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-lg`}></i>
+                         <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-base md:text-lg`}></i>
                       </button>
                    </div>
                 </div>
@@ -533,29 +533,29 @@ const WatchPage: React.FC = () => {
       </div>
 
       {/* Description & List */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-         <div className="lg:col-span-3">
-            <div className="bg-[#16191f] p-8 rounded-[32px] border border-[#272a31]">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-8">
+         <div className="lg:col-span-3 order-2 lg:order-1">
+            <div className="bg-[#16191f] p-6 md:p-8 rounded-[24px] md:rounded-[32px] border border-[#272a31]">
                <h3 className="font-black text-white mb-4 uppercase text-sm flex items-center gap-2">
                  <i className="fa-solid fa-circle-info text-red-600"></i> Description
                </h3>
                <p className="text-sm text-gray-400 leading-relaxed">{anime?.description || 'No description available.'}</p>
             </div>
          </div>
-         <div className="bg-[#16191f] p-6 rounded-[32px] border border-[#272a31] h-[450px] flex flex-col">
-            <h3 className="font-black text-white mb-6 uppercase text-sm flex justify-between">
+         <div className="bg-[#16191f] p-5 md:p-6 rounded-[24px] md:rounded-[32px] border border-[#272a31] h-[350px] md:h-[450px] flex flex-col order-1 lg:order-2">
+            <h3 className="font-black text-white mb-4 md:mb-6 uppercase text-sm flex justify-between">
               <span>Next Episodes</span>
               <span className="text-red-600">{anime?.episodes?.length}</span>
             </h3>
-            <div className="overflow-y-auto space-y-3 flex-1 custom-scrollbar pr-2">
+            <div className="overflow-y-auto space-y-2 md:space-y-3 flex-1 custom-scrollbar pr-2">
                {anime?.episodes?.map(ep => (
                   <Link 
                     key={ep.id} 
                     to={`/watch/${encodeURIComponent(cleanAnimeId)}/${encodeURIComponent(ep.id)}`}
-                    className={`flex items-center p-4 rounded-2xl border transition-all ${ep.id === cleanEpId ? 'bg-red-600 border-red-600 text-white' : 'bg-black/20 border-transparent text-gray-400 hover:bg-black/40'}`}
+                    className={`flex items-center p-3 md:p-4 rounded-xl md:rounded-2xl border transition-all ${ep.id === cleanEpId ? 'bg-red-600 border-red-600 text-white' : 'bg-black/20 border-transparent text-gray-400 hover:bg-black/40'}`}
                   >
-                     <span className="text-[10px] font-black uppercase truncate">{ep.title}</span>
-                     {ep.id === cleanEpId && <i className="fa-solid fa-chart-simple text-xs ml-auto animate-pulse"></i>}
+                     <span className="text-[9px] md:text-[10px] font-black uppercase truncate">{ep.title}</span>
+                     {ep.id === cleanEpId && <i className="fa-solid fa-chart-simple text-[10px] md:text-xs ml-auto animate-pulse"></i>}
                   </Link>
                ))}
             </div>

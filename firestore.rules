@@ -3,10 +3,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper function to check if user is owner
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
     // 1. Community Comments
-    // Allow anyone to read comments (required for the chat to load for guests)
-    // Allow authenticated users to create comments
-    // Allow owners to update/delete their own comments
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null;
@@ -30,11 +32,15 @@ service cloud.firestore {
     
     // 4. User Specific Data
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true; // Allow public read for admin dashboard list
+      allow write: if isOwner(userId);
       
-      // Allow user to access any subcollection within their own user document
-      match /{allSubcollections=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /bookmarks/{bookmarkId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /history/{historyId} {
+        allow read, write: if isOwner(userId);
       }
     }
   }

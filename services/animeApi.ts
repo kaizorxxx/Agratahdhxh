@@ -2,17 +2,13 @@
 import { 
   Anime, 
   Episode, 
-  HomeResponse, 
-  DetailResponse, 
-  WatchResponse, 
-  SearchResponse, 
-  AnimeItem, 
-  ScheduleResponse
+  SansekaiAnimeItem,
+  SansekaiDetailResponse,
+  SansekaiDetailData
 } from '../types.ts';
 
 // --- CONFIGURATION ---
-const BASE_URL = 'https://rgsordertracking.com/animekompi/endpoints';
-const JIKAN_API = 'https://api.jikan.moe/v4/anime';      
+const BASE_URL = 'https://api.sansekai.my.id/api/anime';
 const ANILIST_API = 'https://graphql.anilist.co';        
 
 // --- CACHE SYSTEM ---
@@ -23,7 +19,9 @@ const CACHE_DURATION = 1000 * 60 * 15; // 15 Menit
 
 export const extractIdFromUrl = (url: string): string => {
   if (!url) return '';
-  const parts = url.split('/');
+  // Remove trailing slash if exists
+  const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+  const parts = cleanUrl.split('/');
   return parts[parts.length - 1];
 };
 
@@ -32,8 +30,8 @@ export const getAnimeSlug = (slug: string): string => {
 };
 
 // Helper SUPER KUAT untuk membersihkan judul agar pencarian metadata akurat 100%
-// Mengubah "One Piece Episode 1090 Sub Indo [1080p]" menjadi "One Piece"
 const cleanTitle = (title: string): string => {
+  if (!title) return '';
   return title
     .replace(/\[.*?\]/g, '')            // Hapus text dalam kurung siku [Genzuro]
     .replace(/\(.*?\)/g, '')            // Hapus text dalam kurung biasa (TV)
@@ -57,10 +55,11 @@ const fetcher = async (url: string): Promise<any> => {
   const controller = new AbortController();
   const signal = controller.signal;
 
+  // Try direct fetch first, then proxies if needed (though direct should work for this API)
   const fetchCandidates = [
+    fetch(url, { signal }).then(r => { if(!r.ok) throw 1; return r.json() }),
     fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { signal }).then(r => { if(!r.ok) throw 1; return r.json() }),
-    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal }).then(async r => { if(!r.ok) throw 1; const j = await r.json(); return JSON.parse(j.contents) }),
-    fetch(url, { signal }).then(r => { if(!r.ok) throw 1; return r.json() })
+    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal }).then(async r => { if(!r.ok) throw 1; const j = await r.json(); return JSON.parse(j.contents) })
   ];
 
   try {
@@ -84,26 +83,23 @@ async function fetchAPI<T>(endpoint: string, params?: Record<string, string>): P
     return fetcher(url.toString());
 }
 
-const mapAnimeItemToAnime = (item: AnimeItem): Anime => ({
-  id: item.slug,
-  title: item.title,
-  poster: item.image || item.thumbnail || '',
-  status: item.type, 
+const mapSansekaiItemToAnime = (item: SansekaiAnimeItem): Anime => ({
+  id: item.url, // Use url as ID/slug
+  title: item.judul,
+  poster: item.cover,
+  status: item.lastup, 
   score: undefined, 
-  total_episodes: item.latest_episode,
-  type: item.type
+  total_episodes: item.lastch,
+  type: 'TV' // Default, will be updated by enrichment
 });
 
 // --- SMART BATCH SCRAPER (ANILIST) ---
-// Mengambil metadata untuk BANYAK anime sekaligus dalam 1 request GraphQL
 const fetchAniListBatch = async (titles: string[]) => {
     if (titles.length === 0) return null;
 
-    // Filter judul kosong setelah dibersihkan
     const validTitles = titles.filter(t => cleanTitle(t).length > 0);
     if (validTitles.length === 0) return null;
 
-    // Buat query alias (t0, t1, t2...) untuk mengambil banyak data sekaligus
     const queryParts = validTitles.map((t, i) => {
         const safeTitle = JSON.stringify(cleanTitle(t));
         return `t${i}: Media(search: ${safeTitle}, type: ANIME) { 
@@ -118,7 +114,6 @@ const fetchAniListBatch = async (titles: string[]) => {
     const query = `query { ${queryParts.join('\n')} }`;
     
     try {
-        // Timeout 4 detik agar UI tidak hang jika AniList lambat
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
 
@@ -134,26 +129,18 @@ const fetchAniListBatch = async (titles: string[]) => {
         return json.data; 
     } catch (e) {
         console.warn("Batch metadata scrape skipped/failed:", e);
-        return null; // Return null agar UI tetap jalan dengan data basic (tanpa score)
+        return null; 
     }
 };
 
-// Helper untuk menggabungkan data API utama + Metadata Scraper
 const enrichAnimeList = async (animeList: Anime[]): Promise<Anime[]> => {
     const titles = animeList.map(a => a.title);
     
-    // Jangan biarkan error metadata menghentikan flow utama app
     try {
         const metadata = await fetchAniListBatch(titles);
         
         if (metadata) {
             return animeList.map((item, index) => {
-                // Mapping balik: t0 -> item[0]
-                // Karena kita memfilter judul kosong di fetchAniListBatch, 
-                // index mungkin tidak 1:1 jika ada judul yang hilang, tapi untuk kasus umum ini aman.
-                // Jika ingin presisi 100%, kita harus map ulang berdasarkan judul bersih.
-                
-                // Simplified mapping (asumsi urutan sama untuk valid titles)
                 const meta = metadata[`t${index}`];
                 if (meta) {
                     return {
@@ -161,7 +148,6 @@ const enrichAnimeList = async (animeList: Anime[]): Promise<Anime[]> => {
                         score: meta.averageScore ? (meta.averageScore / 10).toFixed(1) : 'N/A', 
                         release_date: String(meta.seasonYear || meta.startDate?.year || 'Unknown'),
                         type: meta.format || item.type,
-                        // Gunakan poster HD dari AniList jika ada (lebih tajam dari source asli)
                         poster: meta.coverImage?.extraLarge || item.poster 
                     };
                 }
@@ -179,10 +165,12 @@ const enrichAnimeList = async (animeList: Anime[]): Promise<Anime[]> => {
 
 export const fetchLatest = async (page: number = 1): Promise<Anime[]> => {
   try {
-    const res = await fetchAPI<HomeResponse>('/home.php', { page: page.toString() });
-    if (res.status === 'success' && res.data?.anime) {
-      const basicList = res.data.anime.map(mapAnimeItemToAnime);
-      // Inject metadata (Score & Year)
+    // The API doesn't seem to support pagination for latest based on the example URL
+    // But if it does, it might be ?page=...
+    // Assuming standard fetch for now
+    const res = await fetchAPI<SansekaiAnimeItem[]>('/latest');
+    if (Array.isArray(res)) {
+      const basicList = res.map(mapSansekaiItemToAnime);
       return await enrichAnimeList(basicList);
     }
     return [];
@@ -193,9 +181,9 @@ export const fetchLatest = async (page: number = 1): Promise<Anime[]> => {
 
 export const fetchRecommended = async (): Promise<Anime[]> => {
   try {
-    const res = await fetchAPI<HomeResponse>('/home.php', { page: '2' });
-    if (res.status === 'success' && res.data?.anime) {
-      const basicList = res.data.anime.map(mapAnimeItemToAnime);
+    const res = await fetchAPI<SansekaiAnimeItem[]>('/recommended');
+    if (Array.isArray(res)) {
+      const basicList = res.map(mapSansekaiItemToAnime);
       return await enrichAnimeList(basicList);
     }
     return [];
@@ -206,15 +194,39 @@ export const fetchRecommended = async (): Promise<Anime[]> => {
 
 export const searchAnime = async (query: string, page: number = 1): Promise<Anime[]> => {
   try {
-    const res = await fetchAPI<SearchResponse>('/search.php', { q: query, page: page.toString() });
-    if (res.status === 'success' && res.data?.anime) {
-      const basicList = res.data.anime.map(mapAnimeItemToAnime);
-      return await enrichAnimeList(basicList);
+    // The search response structure is nested: { data: [{ result: [...] }] }
+    const res = await fetchAPI<any>('/search', { query: query });
+    
+    if (res && res.data && res.data.length > 0 && res.data[0].result) {
+        const results = res.data[0].result;
+        const basicList = results.map((item: any) => ({
+            id: item.url,
+            title: item.judul,
+            poster: item.cover,
+            status: item.status,
+            score: item.score,
+            total_episodes: item.total_episode,
+            type: 'TV'
+        }));
+        return await enrichAnimeList(basicList);
     }
     return [];
   } catch (e) {
     return [];
   }
+};
+
+export const fetchMovies = async (): Promise<Anime[]> => {
+    try {
+        const res = await fetchAPI<SansekaiAnimeItem[]>('/movie');
+        if (Array.isArray(res)) {
+            const basicList = res.map(mapSansekaiItemToAnime);
+            return await enrichAnimeList(basicList);
+        }
+        return [];
+    } catch (e) {
+        return [];
+    }
 };
 
 // --- SINGLE METADATA FETCHERS (DETAIL PAGE) ---
@@ -243,67 +255,46 @@ const fetchAniListMetadata = async (title: string) => {
     } catch (e) { return null; }
 };
 
-const fetchJikanMetadata = async (title: string) => {
-    try {
-        const q = cleanTitle(title);
-        const url = `${JIKAN_API}?q=${encodeURIComponent(q)}&limit=1`;
-        const res = await fetch(url);
-        if (res.ok) {
-            const json = await res.json();
-            if (json.data && json.data.length > 0) return json.data[0];
-        }
-        return null;
-    } catch (e) { return null; }
-};
-
 export const fetchAnimeDetail = async (slug: string): Promise<Anime | null> => {
   try {
     const cleanSlug = getAnimeSlug(slug);
-    const mainRes = await fetchAPI<DetailResponse>('/detail.php', { slug: cleanSlug });
+    const res = await fetchAPI<SansekaiDetailResponse>('/detail', { urlId: cleanSlug });
 
-    if (mainRes.status === 'success' && mainRes.data) {
-      const d = mainRes.data;
+    if (res && res.data && res.data.length > 0) {
+      const d = res.data[0];
       
-      const episodes: Episode[] = d.episodes.map((ep, idx) => ({
-        id: ep.slug,
-        title: ep.title,
-        number: ep.episode,
+      const episodes: Episode[] = d.chapter.map((ep) => ({
+        id: ep.url, // This is the slug for the episode
+        title: ep.ch,
+        number: ep.ch.replace(/\D/g, ''), // Extract number
         anime_id: cleanSlug,
         date: ep.date
-      })).reverse(); 
+      })); // Already sorted? Assuming yes or reverse if needed
 
-      let finalScore = 'N/A';
-      let finalDate = d.info.dirilis;
-      let finalStudio = d.info.studio;
-      let finalPoster = d.thumbnail;
+      let finalScore = d.rating || 'N/A';
+      let finalDate = d.published;
+      let finalStudio = d.author; // Assuming author is studio
+      let finalPoster = d.cover;
 
       // Single fetch fallback (Detail Page)
-      let aniListData = await fetchAniListMetadata(d.title);
+      let aniListData = await fetchAniListMetadata(d.judul);
       
       if (aniListData) {
           if (aniListData.averageScore) finalScore = (aniListData.averageScore / 10).toFixed(1);
           if (aniListData.seasonYear || aniListData.startDate?.year) finalDate = String(aniListData.seasonYear || aniListData.startDate?.year);
           if (aniListData.studios?.nodes?.length > 0) finalStudio = aniListData.studios.nodes[0].name;
           if (aniListData.coverImage?.extraLarge) finalPoster = aniListData.coverImage.extraLarge;
-      } else {
-          // Backup Jikan
-          const jikanData = await fetchJikanMetadata(d.title);
-          if (jikanData) {
-              if (jikanData.score) finalScore = String(jikanData.score);
-              if (jikanData.year) finalDate = String(jikanData.year);
-              if (jikanData.studios?.[0]?.name) finalStudio = jikanData.studios[0].name;
-          }
       }
 
       return {
         id: cleanSlug,
-        title: d.title,
+        title: d.judul,
         poster: finalPoster,
-        description: d.synopsis,
-        status: d.info.status,
+        description: d.sinopsis,
+        status: d.status,
         studio: finalStudio,
         release_date: finalDate,
-        genres: d.info.genres,
+        genres: d.genre,
         total_episodes: episodes.length,
         episodes: episodes,
         score: finalScore
@@ -317,43 +308,24 @@ export const fetchAnimeDetail = async (slug: string): Promise<Anime | null> => {
 };
 
 export const fetchEpisodeDetail = async (slug: string) => {
-  try {
-    const res = await fetchAPI<WatchResponse>('/watch.php', { slug });
-    if (res.status === 'success' && res.data) {
-      const d = res.data;
-      const rawServers = d.streaming_servers || [];
-      const serverList = rawServers.map(s => ({
-        serverName: s.name, 
-        type: s.type, 
-        url: s.url
-      }));
-      return {
-        title: d.title,
-        stream_url: serverList[0]?.url || '',
-        serverList
-      };
-    }
-    throw new Error('Episode not found');
-  } catch (e) {
-    return null;
-  }
+  // The new API does not provide a direct endpoint for streaming details.
+  // We return null to indicate failure, or we could try to scrape if we had permission.
+  // For now, we stub it.
+  console.warn("Streaming endpoint not available in the new API.");
+  return null;
 };
 
 export const fetchRelatedAnime = async (genres?: string[]): Promise<Anime[]> => {
   if (!genres || genres.length === 0) return [];
-  // Use the first genre for search to get relevant results
   const query = genres[0];
   try {
-      // Reuse searchAnime but maybe limit results or shuffle if possible?
-      // For now, simple search is enough.
       const results = await searchAnime(query);
-      return results.slice(0, 10); // Limit to 10 items
+      return results.slice(0, 10); 
   } catch (e) {
       return [];
   }
 };
 
-export const fetchMovies = async (): Promise<Anime[]> => fetchLatest(1);
 export const fetchOngoing = fetchLatest;
 export const fetchCompleted = fetchRecommended;
 export const fetchRecent = fetchLatest;

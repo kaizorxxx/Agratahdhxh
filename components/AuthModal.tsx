@@ -62,8 +62,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       let msg = 'Terjadi kesalahan saat otentikasi.';
       if (err.code === 'auth/email-already-in-use') {
         msg = 'Email sudah digunakan. Silakan masuk atau gunakan email lain.';
-      } else if (err.code === 'auth/invalid-credential') {
-        msg = 'Email atau password salah.';
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        msg = 'Email tidak ditemukan atau password salah. Periksa kembali input Anda.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Terlalu banyak percobaan login gagal. Silakan coba lagi nanti.';
+      } else if (err.code === 'auth/invalid-api-key') {
+        msg = 'Konfigurasi API Key tidak valid. Hubungi administrator.';
       } else if (err.code === 'auth/operation-not-allowed') {
         msg = 'Login belum diaktifkan di server.';
       } else if (err.code === 'auth/weak-password') {

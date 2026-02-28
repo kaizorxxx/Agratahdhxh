@@ -72,6 +72,41 @@ export interface UserProfile {
   role: 'user' | 'admin';
 }
 
+export interface SansekaiAnimeItem {
+  id: number;
+  url: string;
+  judul: string;
+  cover: string;
+  lastch: string;
+  lastup: string;
+}
+
+export interface SansekaiChapter {
+  id: number;
+  ch: string;
+  url: string;
+  date: string;
+}
+
+export interface SansekaiDetailData {
+  id: number;
+  series_id: string;
+  cover: string;
+  judul: string;
+  type: string;
+  status: string;
+  rating: string;
+  published: string;
+  author: string;
+  genre: string[];
+  sinopsis: string;
+  chapter: SansekaiChapter[];
+}
+
+export interface SansekaiDetailResponse {
+  data: SansekaiDetailData[];
+}
+
 // --- New Backend Types ---
 
 export interface AnimeItem {
