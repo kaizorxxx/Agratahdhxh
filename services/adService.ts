@@ -25,7 +25,7 @@ export const fetchAds = async (): Promise<Ad[]> => {
     } as Ad));
   } catch (error: any) {
     // Suppress permission errors to avoid console noise
-    if (error?.code === 'permission-denied') {
+    if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
         console.warn("Ads fetch skipped: Permission denied (Firestore rules require auth or are restrictive).");
         return [];
     }

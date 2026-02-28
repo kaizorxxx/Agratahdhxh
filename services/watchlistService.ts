@@ -34,7 +34,7 @@ export const isInWatchlist = async (animeId: string): Promise<boolean> => {
     const docSnap = await getDoc(docRef);
     return docSnap.exists();
   } catch (error: any) {
-    if (error?.code === 'permission-denied') {
+    if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
         // This is expected if the user is not the owner of the document or rules are strict
         return false;
     }
@@ -52,7 +52,7 @@ export const getWatchlist = async () => {
     const snapshot = await getDocs(colRef);
     return snapshot.docs.map(doc => doc.data());
   } catch (error: any) {
-    if (error?.code === 'permission-denied') {
+    if (error?.code === 'permission-denied' || error?.message?.includes('Missing or insufficient permissions')) {
         console.warn("Watchlist fetch skipped: Permission denied.");
         return [];
     }

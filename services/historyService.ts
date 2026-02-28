@@ -30,7 +30,7 @@ export const getUserHistoryFromFirestore = async (): Promise<HistoryItem[]> => {
         });
         return history;
     } catch (e: any) {
-        if (e.code === 'permission-denied') {
+        if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
             console.warn("History fetch permission denied. Check Firestore Rules.");
         } else {
             console.error("Error fetching Firestore history:", e);
@@ -81,7 +81,7 @@ export const saveProgress = async (item: Omit<HistoryItem, 'id' | 'updated_at' |
       }, { merge: true });
     }
   } catch (e: any) {
-    if (e.code === 'permission-denied') {
+    if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
         console.warn("Failed to sync history: Permission denied. Check Firestore Rules.");
     } else {
         console.error("Failed to save history", e);
