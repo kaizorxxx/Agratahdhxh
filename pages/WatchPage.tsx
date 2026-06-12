@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { fetchAnimeDetail, fetchEpisodeDetail } from '../services/animeApi.ts';
+import { fetchAnimeDetail, fetchEpisodeDetail, resolveServer } from '../services/animeApi.ts';
 import { saveProgress } from '../services/historyService.ts';
 import { fetchAds } from '../services/adService.ts';
 import { Anime, Ad } from '../types.ts';
@@ -22,6 +22,8 @@ const WatchPage: React.FC = () => {
   const [episode, setEpisode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeServer, setActiveServer] = useState(0);
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
 
   // Ad State
   const [interstitialAd, setInterstitialAd] = useState<Ad | null>(null);
@@ -62,6 +64,7 @@ const WatchPage: React.FC = () => {
         setAnime(aData);
         setEpisode(eData);
         setActiveServer(0);
+        setResolvedUrl(null);
 
         // Process Ads
         const interstitial = adsData.find(a => a.placement === 'interstitial');
@@ -84,9 +87,10 @@ const WatchPage: React.FC = () => {
 
   // HLS & Video Source Handling
   useEffect(() => {
-    if (loading || !episode || !episode.serverList || episode.serverList.length === 0) return;
+    const servers = episode?.streaming_servers;
+    if (loading || !servers || servers.length === 0) return;
 
-    const currentServer = episode.serverList[activeServer];
+    const currentServer = servers[activeServer];
     if (!currentServer) return;
 
     if (hlsRef.current) {
@@ -94,37 +98,56 @@ const WatchPage: React.FC = () => {
       hlsRef.current = null;
     }
 
-    const streamUrl = currentServer.url;
-    const isEmbed = currentServer.type === 'embed' || currentServer.type === 'iframe' || !streamUrl.match(/\.(mp4|m3u8)$/i);
+    const resolveAndLoad = async () => {
+        let streamUrl = currentServer.url;
+        
+        // If URL doesn't look like a URL (no http/https), treat as ID and resolve
+        if (streamUrl && !streamUrl.startsWith('http')) {
+            setIsResolving(true);
+            try {
+                const resolved = await resolveServer(streamUrl);
+                if (resolved) streamUrl = resolved;
+            } catch (e) {
+                console.error("Server resolution failed", e);
+            } finally {
+                setIsResolving(false);
+            }
+        }
+        
+        setResolvedUrl(streamUrl);
 
-    if (isEmbed) return;
+        const isEmbed = currentServer.type === 'embed' || currentServer.type === 'iframe' || !streamUrl?.match(/\.(mp4|m3u8)$/i);
 
-    const video = videoRef.current;
-    if (!video) return;
+        if (isEmbed || !streamUrl) return;
 
-    // Reset Player State
-    setIsPlaying(false);
-    setProgress(0);
-    setCurrentTime(0);
-    setIsBuffering(true);
+        const video = videoRef.current;
+        if (!video) return;
 
-    const isHlsSource = streamUrl.includes('.m3u8') || streamUrl.includes('hls');
+        // Reset Player State
+        setIsPlaying(false);
+        setProgress(0);
+        setCurrentTime(0);
+        setIsBuffering(true);
 
-    if (isHlsSource && window.Hls && window.Hls.isSupported()) {
-      const hls = new window.Hls({ enableWorker: true, lowLatencyMode: true });
-      hlsRef.current = hls;
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-      hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        setIsBuffering(false);
-        // Optional: Auto-play logic could go here
-      });
-      hls.on(window.Hls.Events.ERROR, (_: any, data: any) => {
-        if (data.fatal) hls.destroy();
-      });
-    } else {
-      video.src = streamUrl;
-    }
+        const isHlsSource = streamUrl.includes('.m3u8') || streamUrl.includes('hls');
+
+        if (isHlsSource && window.Hls && window.Hls.isSupported()) {
+          const hls = new window.Hls({ enableWorker: true, lowLatencyMode: true });
+          hlsRef.current = hls;
+          hls.loadSource(streamUrl);
+          hls.attachMedia(video);
+          hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            setIsBuffering(false);
+          });
+          hls.on(window.Hls.Events.ERROR, (_: any, data: any) => {
+            if (data.fatal) hls.destroy();
+          });
+        } else {
+          video.src = streamUrl;
+        }
+    };
+
+    resolveAndLoad();
 
   }, [loading, episode, activeServer]);
 
@@ -307,13 +330,29 @@ const WatchPage: React.FC = () => {
   };
 
   // Check type of player (Embed vs Custom)
-  const currentServer = episode?.serverList?.[activeServer];
-  const isEmbed = currentServer?.type === 'embed' || currentServer?.type === 'iframe' || !currentServer?.url?.match(/\.(mp4|m3u8)$/i);
+  const currentServer = episode?.streaming_servers?.[activeServer];
+  const isEmbed = currentServer?.type === 'embed' || currentServer?.type === 'iframe' || !resolvedUrl?.match(/\.(mp4|m3u8)$/i);
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-[70vh] animate-pulse space-y-4">
-      <div className="w-16 h-16 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Loading Player Stream...</p>
+    <div className="px-4 md:px-8 pb-12 space-y-8 animate-pulse bg-black min-h-screen">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-4">
+         <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 bg-white/5 rounded-xl"></div>
+            <div className="space-y-2">
+               <div className="h-6 bg-white/5 rounded w-48"></div>
+               <div className="h-3 bg-white/5 rounded w-24"></div>
+            </div>
+         </div>
+         <div className="flex gap-2">
+            <div className="w-20 h-8 bg-white/5 rounded-lg"></div>
+            <div className="w-20 h-8 bg-white/5 rounded-lg"></div>
+         </div>
+      </div>
+      <div className="w-full aspect-video bg-[#111] rounded-[16px] md:rounded-[40px]"></div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+         <div className="lg:col-span-3 h-32 bg-white/5 rounded-[24px]"></div>
+         <div className="h-64 bg-white/5 rounded-[24px]"></div>
+      </div>
     </div>
   );
 
@@ -341,13 +380,13 @@ const WatchPage: React.FC = () => {
          </div>
          
          <div className="flex flex-wrap gap-2">
-            {episode?.serverList?.map((s: any, i: number) => (
+            {episode?.streaming_servers?.map((s: any, i: number) => (
               <button 
                 key={i} 
                 onClick={() => setActiveServer(i)} 
                 className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase border transition-all ${activeServer === i ? 'bg-red-600 border-red-600 text-white' : 'bg-[#16191f] border-[#272a31] text-gray-400 hover:text-white'}`}
               >
-                {s.serverName || `Server ${i+1}`}
+                {s.name || `Server ${i+1}`}
               </button>
             ))}
          </div>
@@ -379,7 +418,7 @@ const WatchPage: React.FC = () => {
 
          {isEmbed ? (
            <iframe 
-             src={currentServer?.url} 
+             src={resolvedUrl || ''} 
              className="w-full h-full border-0" 
              allowFullScreen 
              scrolling="no" 
@@ -539,7 +578,14 @@ const WatchPage: React.FC = () => {
                <h3 className="font-black text-white mb-4 uppercase text-sm flex items-center gap-2">
                  <i className="fa-solid fa-circle-info text-red-600"></i> Description
                </h3>
-               <p className="text-sm text-gray-400 leading-relaxed">{anime?.description || 'No description available.'}</p>
+               <p className="text-sm text-gray-400 leading-relaxed">
+                 {typeof anime?.description === 'string' 
+                   ? anime.description 
+                   : (anime?.description && typeof anime.description === 'object' && Array.isArray((anime.description as any).paragraphs)
+                     ? (anime.description as any).paragraphs.join('\n\n')
+                     : 'No description available.')
+                 }
+               </p>
             </div>
          </div>
          <div className="bg-[#16191f] p-5 md:p-6 rounded-[24px] md:rounded-[32px] border border-[#272a31] h-[350px] md:h-[450px] flex flex-col order-1 lg:order-2">

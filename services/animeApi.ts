@@ -1,14 +1,11 @@
 
 import { 
   Anime, 
-  Episode, 
-  SansekaiAnimeItem,
-  SansekaiDetailResponse,
-  SansekaiDetailData
+  Episode 
 } from '../types.ts';
 
 // --- CONFIGURATION ---
-const BASE_URL = 'https://api.sansekai.my.id/api/anime';
+const BASE_URL = window.location.origin + '/api';
 const ANILIST_API = 'https://graphql.anilist.co';        
 
 // --- CACHE SYSTEM ---
@@ -17,34 +14,27 @@ const CACHE_DURATION = 1000 * 60 * 15; // 15 Menit
 
 // --- HELPERS ---
 
-export const extractIdFromUrl = (url: string): string => {
-  if (!url) return '';
-  // Remove trailing slash if exists
-  const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-  const parts = cleanUrl.split('/');
-  return parts[parts.length - 1];
-};
-
 export const getAnimeSlug = (slug: string): string => {
-  return slug.replace(/-episode-\d+.*$/, '');
+  if (!slug) return '';
+  return slug.replace(/-episode-\d+.*$/, '').replace(/\/$/, '');
 };
 
-// Helper SUPER KUAT untuk membersihkan judul agar pencarian metadata akurat 100%
 const cleanTitle = (title: string): string => {
   if (!title) return '';
   return title
-    .replace(/\[.*?\]/g, '')            // Hapus text dalam kurung siku [Genzuro]
-    .replace(/\(.*?\)/g, '')            // Hapus text dalam kurung biasa (TV)
-    .replace(/\s+episode\s+\d+.*/i, '') // Hapus "Episode 12..." dan seterusnya
-    .replace(/\s+sub\s+indo.*/i, '')    // Hapus "Sub Indo..."
-    .replace(/\s+subtitle\s+indonesia.*/i, '') // Hapus versi panjang
-    .replace(/\b(1080p|720p|480p|360p)\b/gi, '') // Hapus resolusi
-    .replace(/\s+/g, ' ')               // Rapikan spasi ganda
+    .replace(/\[.*?\]/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/\s+episode\s+\d+.*/i, '')
+    .replace(/\s+sub\s+indo.*/i, '')
+    .replace(/\s+subtitle\s+indonesia.*/i, '')
+    .replace(/\b(1080p|720p|480p|360p)\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 };
 
 /**
- * PROXY FETCHER
+ * SECURE DIRECT BACKEND PROXY FETCHER
+ * Fetches through our Express backend proxy to ensure 100% reliability, speed, and safety of API calls.
  */
 const fetcher = async (url: string): Promise<any> => {
   const cached = API_CACHE.get(url);
@@ -52,24 +42,27 @@ const fetcher = async (url: string): Promise<any> => {
     return cached.data;
   }
 
-  const controller = new AbortController();
-  const signal = controller.signal;
-
-  // Try direct fetch first, then proxies if needed (though direct should work for this API)
-  const fetchCandidates = [
-    fetch(url, { signal }).then(r => { if(!r.ok) throw 1; return r.json() }),
-    fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, { signal }).then(r => { if(!r.ok) throw 1; return r.json() }),
-    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal }).then(async r => { if(!r.ok) throw 1; const j = await r.json(); return JSON.parse(j.contents) })
-  ];
-
   try {
-    // @ts-ignore
-    const result = await Promise.any(fetchCandidates);
-    API_CACHE.set(url, { data: result, timestamp: Date.now() });
-    return result;
-  } catch (error) {
-    console.warn(`Fetch failed for ${url}`);
-    throw new Error('Gagal memuat data utama.');
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Server returned status ${res.status}`);
+    }
+    
+    const data = await res.json();
+    
+    // Strict validation: Every successful Sankavollerei API payload contains a 'data' key nesting actual contents, or 'status' indicating validity.
+    const isValidPayload = data && typeof data === 'object' && 
+                           ('data' in data || 'status' in data);
+
+    if (isValidPayload) {
+      API_CACHE.set(url, { data, timestamp: Date.now() });
+      return data;
+    } else {
+      throw new Error('Invalid server response payload structure');
+    }
+  } catch (e) {
+    console.error(`Secure proxy fetcher failed for: ${url}`, e);
+    throw new Error('Gagal memuat data dari server. Silakan coba lagi nanti.');
   }
 };
 
@@ -83,250 +76,192 @@ async function fetchAPI<T>(endpoint: string, params?: Record<string, string>): P
     return fetcher(url.toString());
 }
 
-const mapSansekaiItemToAnime = (item: SansekaiAnimeItem): Anime => ({
-  id: item.url, // Use url as ID/slug
-  title: item.judul,
-  poster: item.cover,
-  status: item.lastup, 
-  score: undefined, 
-  total_episodes: item.lastch,
-  type: 'TV' // Default, will be updated by enrichment
+const mapVantaToAnime = (item: any): Anime => ({
+  id: item.animeId || item.id,
+  title: item.title,
+  poster: item.poster,
+  status: item.episodes ? `Ep ${item.episodes}` : (item.status || item.releaseDay || ''),
+  score: item.score || 'N/A',
+  total_episodes: item.episodes || '',
+  type: item.type || 'TV',
+  genres: Array.isArray(item.genreList) ? item.genreList.map((g: any) => g.title) : []
 });
-
-// --- SMART BATCH SCRAPER (ANILIST) ---
-const fetchAniListBatch = async (titles: string[]) => {
-    if (titles.length === 0) return null;
-
-    const validTitles = titles.filter(t => cleanTitle(t).length > 0);
-    if (validTitles.length === 0) return null;
-
-    const queryParts = validTitles.map((t, i) => {
-        const safeTitle = JSON.stringify(cleanTitle(t));
-        return `t${i}: Media(search: ${safeTitle}, type: ANIME) { 
-            averageScore 
-            seasonYear 
-            startDate { year } 
-            format
-            coverImage { extraLarge }
-        }`;
-    });
-    
-    const query = `query { ${queryParts.join('\n')} }`;
-    
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-        const res = await fetch(ANILIST_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ query }),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        const json = await res.json();
-        return json.data; 
-    } catch (e) {
-        console.warn("Batch metadata scrape skipped/failed:", e);
-        return null; 
-    }
-};
-
-const enrichAnimeList = async (animeList: Anime[]): Promise<Anime[]> => {
-    const titles = animeList.map(a => a.title);
-    
-    try {
-        const metadata = await fetchAniListBatch(titles);
-        
-        if (metadata) {
-            return animeList.map((item, index) => {
-                const meta = metadata[`t${index}`];
-                if (meta) {
-                    return {
-                        ...item,
-                        score: meta.averageScore ? (meta.averageScore / 10).toFixed(1) : 'N/A', 
-                        release_date: String(meta.seasonYear || meta.startDate?.year || 'Unknown'),
-                        type: meta.format || item.type,
-                        poster: meta.coverImage?.extraLarge || item.poster 
-                    };
-                }
-                return item;
-            });
-        }
-    } catch (e) {
-        console.warn("Enrichment failed, returning basic list");
-    }
-    
-    return animeList;
-};
 
 // --- API METHODS ---
 
 export const fetchLatest = async (page: number = 1): Promise<Anime[]> => {
   try {
-    // The API doesn't seem to support pagination for latest based on the example URL
-    // But if it does, it might be ?page=...
-    // Assuming standard fetch for now
-    const res = await fetchAPI<SansekaiAnimeItem[]>('/latest');
-    if (Array.isArray(res)) {
-      const basicList = res.map(mapSansekaiItemToAnime);
-      return await enrichAnimeList(basicList);
+    const res = await fetchAPI<any>(`/anime/ongoing-anime?page=${page}`);
+    if (res && res.data && Array.isArray(res.data.animeList)) {
+      return res.data.animeList.map(mapVantaToAnime);
     }
     return [];
   } catch (e) {
+    console.error("fetchLatest failed", e);
     return [];
   }
 };
 
+export const fetchOngoing = fetchLatest;
+
 export const fetchRecommended = async (): Promise<Anime[]> => {
   try {
-    const res = await fetchAPI<SansekaiAnimeItem[]>('/recommended');
-    if (Array.isArray(res)) {
-      const basicList = res.map(mapSansekaiItemToAnime);
-      return await enrichAnimeList(basicList);
+    const res = await fetchAPI<any>('/anime/complete-anime');
+    if (res && res.data && Array.isArray(res.data.animeList)) {
+       return res.data.animeList.map(mapVantaToAnime);
     }
     return [];
   } catch (e) {
+    console.error("fetchRecommended failed", e);
+    return [];
+  }
+};
+
+export const fetchTrending = fetchOngoing;
+export const fetchRecent = fetchLatest;
+export const fetchCompleted = fetchRecommended;
+
+export const fetchMovies = async (): Promise<Anime[]> => {
+  try {
+    const res = await fetchAPI<any>('/anime/unlimited');
+    if (res && res.data && Array.isArray(res.data.animeList)) {
+         return res.data.animeList.filter((item: any) => 
+            item.type?.toLowerCase().includes('movie') || 
+            item.title?.toLowerCase().includes('movie')
+         ).map(mapVantaToAnime);
+    }
+    return [];
+  } catch (e) {
+    console.error("fetchMovies failed", e);
     return [];
   }
 };
 
 export const searchAnime = async (query: string, page: number = 1): Promise<Anime[]> => {
   try {
-    // The search response structure is nested: { data: [{ result: [...] }] }
-    const res = await fetchAPI<any>('/search', { query: query });
-    
-    if (res && res.data && res.data.length > 0 && res.data[0].result) {
-        const results = res.data[0].result;
-        const basicList = results.map((item: any) => ({
-            id: item.url,
-            title: item.judul,
-            poster: item.cover,
-            status: item.status,
-            score: item.score,
-            total_episodes: item.total_episode,
-            type: 'TV'
-        }));
-        return await enrichAnimeList(basicList);
+    const res = await fetchAPI<any>(`/anime/search/${encodeURIComponent(query)}`);
+    if (res && res.data && Array.isArray(res.data.animeList)) {
+        return res.data.animeList.map(mapVantaToAnime);
     }
     return [];
   } catch (e) {
+    console.error("searchAnime failed", e);
     return [];
   }
 };
 
-export const fetchMovies = async (): Promise<Anime[]> => {
-    try {
-        const res = await fetchAPI<SansekaiAnimeItem[]>('/movie');
-        if (Array.isArray(res)) {
-            const basicList = res.map(mapSansekaiItemToAnime);
-            return await enrichAnimeList(basicList);
-        }
-        return [];
-    } catch (e) {
-        return [];
-    }
-};
-
-// --- SINGLE METADATA FETCHERS (DETAIL PAGE) ---
-
-const fetchAniListMetadata = async (title: string) => {
-    const q = cleanTitle(title);
-    const query = `
-    query ($search: String) {
-      Media (search: $search, type: ANIME) {
-        averageScore
-        seasonYear
-        startDate { year }
-        studios(isMain: true) { nodes { name } }
-        coverImage { extraLarge }
-      }
-    }
-    `;
-    try {
-        const res = await fetch(ANILIST_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, variables: { search: q } })
-        });
-        const json = await res.json();
-        return json.data?.Media || null;
-    } catch (e) { return null; }
-};
-
 export const fetchAnimeDetail = async (slug: string): Promise<Anime | null> => {
+  const cleanSlug = getAnimeSlug(slug);
   try {
-    const cleanSlug = getAnimeSlug(slug);
-    const res = await fetchAPI<SansekaiDetailResponse>('/detail', { urlId: cleanSlug });
+    const res = await fetchAPI<any>(`/anime/anime/${cleanSlug}`);
 
-    if (res && res.data && res.data.length > 0) {
-      const d = res.data[0];
+    if (res && res.data) {
+      const d = res.data;
       
-      const episodes: Episode[] = d.chapter.map((ep) => ({
-        id: ep.url, // This is the slug for the episode
-        title: ep.ch,
-        number: ep.ch.replace(/\D/g, ''), // Extract number
-        anime_id: cleanSlug,
-        date: ep.date
-      })); // Already sorted? Assuming yes or reverse if needed
+      const episodes = Array.isArray(d.episodeList)
+        ? d.episodeList.map((ep: any) => ({
+            id: ep.episodeId,
+            title: ep.title,
+            number: ep.eps || parseInt(ep.title.match(/episode\s+(\d+)/i)?.[1] || '0'),
+            anime_id: cleanSlug,
+            date: ep.date
+          })).reverse()
+        : [];
 
-      let finalScore = d.rating || 'N/A';
-      let finalDate = d.published;
-      let finalStudio = d.author; // Assuming author is studio
-      let finalPoster = d.cover;
-
-      // Single fetch fallback (Detail Page)
-      let aniListData = await fetchAniListMetadata(d.judul);
-      
-      if (aniListData) {
-          if (aniListData.averageScore) finalScore = (aniListData.averageScore / 10).toFixed(1);
-          if (aniListData.seasonYear || aniListData.startDate?.year) finalDate = String(aniListData.seasonYear || aniListData.startDate?.year);
-          if (aniListData.studios?.nodes?.length > 0) finalStudio = aniListData.studios.nodes[0].name;
-          if (aniListData.coverImage?.extraLarge) finalPoster = aniListData.coverImage.extraLarge;
+      let safeDescription = '';
+      if (d.synopsis) {
+        if (typeof d.synopsis === 'string') {
+          safeDescription = d.synopsis;
+        } else if (typeof d.synopsis === 'object') {
+          if (Array.isArray(d.synopsis.paragraphs)) {
+            safeDescription = d.synopsis.paragraphs.join('\n\n');
+          } else if (d.synopsis.text) {
+            safeDescription = String(d.synopsis.text);
+          } else {
+            safeDescription = JSON.stringify(d.synopsis);
+          }
+        }
       }
 
       return {
         id: cleanSlug,
-        title: d.judul,
-        poster: finalPoster,
-        description: d.sinopsis,
+        title: d.title,
+        poster: d.poster,
+        description: safeDescription,
         status: d.status,
-        studio: finalStudio,
-        release_date: finalDate,
-        genres: d.genre,
-        total_episodes: episodes.length,
+        studio: d.studios,
+        release_date: d.aired,
+        genres: Array.isArray(d.genreList) ? d.genreList.map((g: any) => g.title) : [],
+        total_episodes: d.episodes || episodes.length,
         episodes: episodes,
-        score: finalScore
+        score: d.score || 'N/A'
       };
     }
     return null;
   } catch (e) {
-    console.error("Fetch Anime Detail Error:", e);
+    console.warn("fetchAnimeDetail failed for", cleanSlug, e);
     return null;
   }
 };
 
 export const fetchEpisodeDetail = async (slug: string) => {
-  // The new API does not provide a direct endpoint for streaming details.
-  // We return null to indicate failure, or we could try to scrape if we had permission.
-  // For now, we stub it.
-  console.warn("Streaming endpoint not available in the new API.");
-  return null;
+  try {
+    const res = await fetchAPI<any>(`/anime/episode/${slug}`);
+    if (res && res.data) {
+        const d = res.data;
+        
+        const streaming_servers: any[] = [];
+        
+        if (d.defaultStreamingUrl) {
+           streaming_servers.push({
+              name: 'Default Premium Server',
+              url: d.defaultStreamingUrl,
+              type: 'embed'
+           });
+        }
+        
+        if (d.server && Array.isArray(d.server.qualities)) {
+           d.server.qualities.forEach((q: any) => {
+              if (Array.isArray(q.serverList)) {
+                 q.serverList.forEach((s: any) => {
+                    streaming_servers.push({
+                       name: `${q.title} - ${s.title.trim()}`,
+                       url: s.serverId,
+                       type: 'embed'
+                    });
+                 });
+              }
+           });
+        }
+        
+        return {
+            title: d.title || `Episode ${slug}`,
+            stream_url: d.defaultStreamingUrl || '',
+            streaming_servers: streaming_servers
+        };
+    }
+    return null;
+  } catch (e) {
+    console.warn("fetchEpisodeDetail failed for", slug, e);
+    return null;
+  }
+};
+
+export const resolveServer = async (serverId: string) => {
+    try {
+        const res = await fetchAPI<any>(`/anime/server/${serverId}`);
+        if (res && res.data && res.data.url) {
+            return res.data.url;
+        }
+        return null;
+    } catch (e) {
+        console.warn("resolveServer failed", e);
+        return null;
+    }
 };
 
 export const fetchRelatedAnime = async (genres?: string[]): Promise<Anime[]> => {
   if (!genres || genres.length === 0) return [];
-  const query = genres[0];
-  try {
-      const results = await searchAnime(query);
-      return results.slice(0, 10); 
-  } catch (e) {
-      return [];
-  }
+  return searchAnime(genres[0]);
 };
 
-export const fetchOngoing = fetchLatest;
-export const fetchCompleted = fetchRecommended;
-export const fetchRecent = fetchLatest;
-export const fetchTrending = fetchRecommended;

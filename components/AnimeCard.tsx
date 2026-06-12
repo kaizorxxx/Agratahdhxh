@@ -15,6 +15,13 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime }) => {
   const targetLink = `/anime/${encodeURIComponent(animeSlug)}`;
   const FALLBACK_IMAGE = "https://via.placeholder.com/300x450/000000/333333?text=GENZURO";
 
+  // Prefetch data on hover
+  const handlePrefetch = () => {
+    import('../services/animeApi.ts').then(api => {
+      api.fetchAnimeDetail(animeSlug).catch(() => {});
+    });
+  };
+
   // Data formatting
   // Extract Year from date string (e.g., "2024-05-12" -> "2024")
   const getYear = (dateStr?: string) => {
@@ -28,7 +35,10 @@ const AnimeCard: React.FC<AnimeCardProps> = ({ anime }) => {
   const displayEpisodes = anime.total_episodes ? `${anime.total_episodes}` : '?';
 
   return (
-    <div className="group space-y-3 w-full animate-fadeIn">
+    <div 
+      className="group space-y-3 w-full animate-fadeIn"
+      onMouseEnter={handlePrefetch}
+    >
       {/* Card Image Container */}
       <Link to={targetLink} className="relative block aspect-[2/3] rounded-xl md:rounded-[20px] overflow-hidden bg-[#111] shadow-lg transition-all duration-300 transform group-hover:scale-[1.02] border border-white/5">
         

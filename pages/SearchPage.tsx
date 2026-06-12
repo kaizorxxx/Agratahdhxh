@@ -5,6 +5,19 @@ import { searchAnime, getAnimeSlug } from '../services/animeApi.ts';
 import { Anime } from '../types.ts';
 import AnimeCard from '../components/AnimeCard.tsx';
 
+const POPULAR_KEYWORDS = [
+  { text: 'One Piece', category: 'Action' },
+  { text: 'Naruto', category: 'Classic' },
+  { text: 'Solo Leveling', category: 'Fantasy' },
+  { text: 'Jujutsu Kaisen', category: 'Supernatural' },
+  { text: 'Kimetsu no Yaiba', category: 'Shounen' },
+  { text: 'Blue Lock', category: 'Sports' },
+  { text: 'Chainsaw Man', category: 'Thriller' },
+  { text: 'Bleach', category: 'Action' },
+  { text: 'Boruto', category: 'Adventure' },
+  { text: 'Kaiju No. 8', category: 'Sci-Fi' }
+];
+
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
@@ -199,36 +212,86 @@ const SearchPage: React.FC = () => {
                     {/* Live Suggestions */}
                     {query.length > 2 && (
                         <div className="border-b border-white/5 pb-2">
-                             <div className="px-6 py-3 flex items-center justify-between">
-                                <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">
-                                    {suggestionsLoading ? 'Mencari...' : 'Saran Pencarian'}
+                             <div className="px-6 py-3 flex items-center justify-between border-b border-white/5">
+                                <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
+                                    {suggestionsLoading ? (
+                                        <>
+                                            <i className="fa-solid fa-circle-notch animate-spin text-red-500"></i>
+                                            Mencari...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fa-solid fa-sparkles text-red-500"></i>
+                                            Saran Pencarian
+                                        </>
+                                    )}
                                 </span>
                              </div>
                              
-                             {suggestions.map((anime) => (
-                                 <Link 
-                                    key={anime.id}
-                                    to={`/anime/${getAnimeSlug(anime.id)}`}
-                                    onClick={() => { addToRecent(query); setIsFocused(false); }}
-                                    className="flex items-center space-x-4 px-6 py-3 hover:bg-white/5 transition-colors group"
-                                 >
-                                    <img src={anime.poster} className="w-10 h-14 object-cover rounded-md border border-white/10 group-hover:border-red-600 transition-colors" alt="" />
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-bold text-white group-hover:text-red-500 truncate transition-colors">{anime.title}</h4>
-                                        <div className="flex items-center space-x-2 text-[10px] text-gray-500 mt-1">
-                                            <span className="uppercase">{anime.status || 'Anime'}</span>
-                                            {anime.score && <span className="text-yellow-500">★ {anime.score}</span>}
+                             {suggestionsLoading ? (
+                                 <div className="space-y-4 px-6 py-4">
+                                     {[1, 2, 3].map((n) => (
+                                         <div key={n} className="flex items-center space-x-4 animate-pulse">
+                                             <div className="w-10 h-14 bg-white/5 rounded-md"></div>
+                                             <div className="flex-1 space-y-2">
+                                                 <div className="h-4 bg-white/5 rounded-md w-2/3"></div>
+                                                 <div className="h-3 bg-white/4 rounded-md w-1/4"></div>
+                                             </div>
+                                         </div>
+                                     ))}
+                                 </div>
+                             ) : (
+                                 <>
+                                     {suggestions.map((anime) => (
+                                         <Link 
+                                            key={anime.id}
+                                            to={`/anime/${getAnimeSlug(anime.id)}`}
+                                            onClick={() => { addToRecent(query); setIsFocused(false); }}
+                                            className="flex items-center space-x-4 px-6 py-3 hover:bg-white/5 transition-colors group"
+                                         >
+                                            <img src={anime.poster} className="w-10 h-14 object-cover rounded-md border border-white/10 group-hover:border-red-600 transition-colors" alt="" referrerPolicy="no-referrer" />
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="text-sm font-bold text-white group-hover:text-red-500 truncate transition-colors">{anime.title}</h4>
+                                                <div className="flex items-center space-x-2 text-[10px] text-gray-500 mt-1">
+                                                    <span className="uppercase bg-[#272a31] text-gray-400 px-1.5 py-0.5 rounded text-[8px] font-black">{anime.status || 'Anime'}</span>
+                                                    {anime.score && <span className="text-yellow-500 font-bold">★ {anime.score}</span>}
+                                                </div>
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-xs text-gray-600 group-hover:text-white transition-transform group-hover:translate-x-1"></i>
+                                         </Link>
+                                     ))}
+                                     
+                                     {suggestions.length === 0 && (
+                                        <div className="px-6 py-6 text-center text-xs text-gray-500 italic">
+                                            Tidak ada saran yang cocok.
                                         </div>
-                                    </div>
-                                    <i className="fa-solid fa-chevron-right text-xs text-gray-600 group-hover:text-white"></i>
-                                 </Link>
-                             ))}
-                             
-                             {!suggestionsLoading && suggestions.length === 0 && (
-                                <div className="px-6 py-4 text-center text-xs text-gray-500 italic">
-                                    Tidak ada saran yang cocok.
-                                </div>
+                                     )}
+                                 </>
                              )}
+                        </div>
+                    )}
+
+                    {/* Popular Keywords (Shown inside dropdown when query is short) */}
+                    {query.length <= 2 && (
+                        <div className="p-6 border-b border-white/5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <i className="fa-solid fa-fire text-red-500 text-xs animate-pulse"></i>
+                                <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
+                                    Keyword Terpopuler
+                                </h3>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {POPULAR_KEYWORDS.slice(0, 6).map((item, idx) => (
+                                    <button 
+                                        key={idx}
+                                        onClick={() => handleRecentClick(item.text)}
+                                        className="px-3.5 py-2 bg-[#21242c] hover:bg-red-600 border border-[#333742] hover:border-red-500 rounded-xl text-xs font-bold text-gray-300 hover:text-white transition-all flex items-center gap-2 group cursor-pointer"
+                                    >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-600 group-hover:bg-white"></span>
+                                        {item.text}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -236,7 +299,7 @@ const SearchPage: React.FC = () => {
                     {recentSearches.length > 0 && (
                         <div className="p-6 bg-black/20">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xs font-black uppercase text-gray-400 flex items-center gap-2">
+                                <h3 className="text-[10px] font-black uppercase text-gray-400 flex items-center gap-2 tracking-wider">
                                     <i className="fa-solid fa-clock-rotate-left"></i>
                                     Riwayat Pencarian
                                 </h3>
@@ -302,6 +365,77 @@ const SearchPage: React.FC = () => {
                     Browse Catalog
                   </Link>
                </div>
+            </div>
+          ) : !hasSearched ? (
+            <div className="max-w-3xl mx-auto space-y-10 animate-fadeIn">
+              {/* Popular Keywords Section */}
+              <div className="bg-[#16191f]/50 border border-[#272a31] rounded-3xl p-6 md:p-8 space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-600/10 flex items-center justify-center border border-red-600/20">
+                    <i className="fa-solid fa-fire text-red-600 text-lg"></i>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Popular Keywords</h3>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Pencarian yang paling banyak dicari</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2.5">
+                  {POPULAR_KEYWORDS.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleRecentClick(item.text)}
+                      className="px-4.5 py-2.5 bg-[#21242c] hover:bg-red-600 border border-[#333742] hover:border-red-500 rounded-xl text-xs font-black text-gray-300 hover:text-white transition-all flex items-center gap-2 group cursor-pointer uppercase tracking-wider"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-600 group-hover:bg-white"></span>
+                      {item.text}
+                      {item.category && (
+                        <span className="text-[9px] px-2 py-0.5 bg-black/40 text-gray-500 group-hover:text-red-200 group-hover:bg-red-700/30 rounded-md font-bold font-sans">
+                          {item.category}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Searches Desktop Visual Dashboard */}
+              {recentSearches.length > 0 && (
+                <div className="bg-[#16191f]/50 border border-[#272a31] rounded-3xl p-6 md:p-8 space-y-6">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-red-600/10 flex items-center justify-center border border-red-600/20">
+                        <i className="fa-solid fa-clock-rotate-left text-red-600 text-lg"></i>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-wider">Riwayat Pencarian</h3>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Aktivitas pencarian Anda</p>
+                      </div>
+                    </div>
+                    <button onClick={clearHistory} className="text-[10px] text-red-500 hover:text-red-400 font-black uppercase tracking-wider hover:underline flex items-center gap-1">
+                      <i className="fa-solid fa-trash-can"></i> Hapus Semua
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    {recentSearches.map((term, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleRecentClick(term)}
+                        className="group flex items-center space-x-2.5 bg-[#21242c] hover:bg-[#2c303c] border border-[#333742] rounded-xl pl-4 pr-2 py-2 cursor-pointer transition-all"
+                      >
+                        <span className="text-xs font-bold text-gray-300 group-hover:text-white max-w-[150px] truncate">{term}</span>
+                        <button
+                          onClick={(e) => removeRecent(term, e)}
+                          className="w-5 h-5 rounded-md bg-black/20 hover:bg-red-600/20 text-gray-500 hover:text-red-400 flex items-center justify-center transition-colors"
+                        >
+                          <i className="fa-solid fa-xmark text-[10px]"></i>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">

@@ -201,8 +201,22 @@ const AnimeDetailPage: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-[80vh] space-y-6">
-       <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+    <div className="animate-pulse bg-black min-h-screen">
+      <div className="h-[100vh] w-full bg-[#111] flex items-center justify-center">
+         <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end px-8 md:px-20 pb-32 gap-12 w-full max-w-7xl">
+            <div className="w-64 md:w-96 aspect-[2/3] rounded-[48px] bg-white/5"></div>
+            <div className="flex-1 space-y-6">
+               <div className="h-4 bg-white/5 rounded w-1/4"></div>
+               <div className="h-16 bg-white/5 rounded w-3/4"></div>
+               <div className="h-4 bg-white/5 rounded w-1/2"></div>
+               <div className="h-24 bg-white/5 rounded w-full"></div>
+               <div className="flex gap-4">
+                  <div className="h-12 bg-white/5 rounded-xl w-32"></div>
+                  <div className="h-12 bg-white/5 rounded-xl w-32"></div>
+               </div>
+            </div>
+         </div>
+      </div>
     </div>
   );
 
@@ -249,7 +263,12 @@ const AnimeDetailPage: React.FC = () => {
                 </div>
 
                 <p className="text-gray-400 text-sm md:text-lg max-w-2xl line-clamp-3 md:line-clamp-none leading-relaxed">
-                    {anime.description || "In a world where destinies collide, follow the journey of legend in this GENZURO original series."}
+                    {typeof anime.description === 'string' 
+                      ? anime.description 
+                      : (anime.description && typeof anime.description === 'object' && Array.isArray((anime.description as any).paragraphs)
+                        ? (anime.description as any).paragraphs.join('\n\n')
+                        : "In a world where destinies collide, follow the journey of legend in this GENZURO original series.")
+                    }
                 </p>
 
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4 pt-4">
